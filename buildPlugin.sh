@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Load fnm (Fast Node Manager) if available
+export PATH="$HOME/.local/state/fnm_multishells/$(ls $HOME/.local/state/fnm_multishells 2>/dev/null | tail -1)/bin:$PATH" 2>/dev/null || true
+if command -v fnm &>/dev/null; then eval "$(fnm env)"; fi
+
 # =========================================================
 # Function: write_color_output
 # Purpose: Print colored messages to the terminal

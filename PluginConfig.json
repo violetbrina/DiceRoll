@@ -1,0 +1,10 @@
+{
+  "name": "dice_roll",
+  "desc": "",
+  "iconPath": "",
+  "versionName": "0.0.1",
+  "versionCode": "1",
+  "pluginID": "475oxpaxcsnzr60t",
+  "pluginKey": "dice_roll",
+  "jsMainPath": "index"
+}
