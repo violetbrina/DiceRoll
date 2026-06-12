@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PluginManager, PluginCommAPI } from 'sn-plugin-lib';
+import { PluginManager, PluginCommAPI, PluginNoteAPI } from 'sn-plugin-lib';
 import { parseDiceNotation, RollResult, DieResult } from './src/diceUtils';
 import DiceFace from './src/DiceFace';
 
@@ -110,16 +110,43 @@ export default function App(): React.JSX.Element {
   const handleCopyTotal = useCallback(() => {
     if (!result) return;
     Clipboard.setString(String(result.total));
+    PluginManager.closePluginView();
   }, [result]);
 
-  const handleInsertDice = useCallback(() => {
-    if (!result) return;
-    const d6Faces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-    const textRepr = result.dice
+  const d6Faces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+
+  const getDiceText = useCallback(() => {
+    if (!result) return '';
+    return result.dice
       .map(d => d.sides === 6 && d.value <= 6 ? d6Faces[d.value] : `[d${d.sides}:${d.value}]`)
-      .join(' ') + ` = ${result.total}`;
-    Clipboard.setString(textRepr);
+      .join(' ');
   }, [result]);
+
+  const handleCopyDice = useCallback(() => {
+    if (!result) return;
+    Clipboard.setString(getDiceText());
+    PluginManager.closePluginView();
+  }, [result, getDiceText]);
+
+  const handleInsertTotal = useCallback(async () => {
+    if (!result) return;
+    await PluginNoteAPI.insertText({
+      textContentFull: String(result.total),
+      textRect: { left: 100, top: 100, right: 500, bottom: 220 },
+      fontSize: 72,
+    });
+    PluginManager.closePluginView();
+  }, [result]);
+
+  const handleInsertDice = useCallback(async () => {
+    if (!result) return;
+    await PluginNoteAPI.insertText({
+      textContentFull: getDiceText(),
+      textRect: { left: 100, top: 100, right: 1100, bottom: 220 },
+      fontSize: 72,
+    });
+    PluginManager.closePluginView();
+  }, [result, getDiceText]);
 
   const handleClose = useCallback(() => {
     PluginManager.closePluginView();
@@ -203,8 +230,16 @@ export default function App(): React.JSX.Element {
             <Pressable style={styles.actionBtn} onPress={handleCopyTotal}>
               <Text style={styles.actionBtnText}>Copy Total</Text>
             </Pressable>
+            <Pressable style={styles.actionBtn} onPress={handleCopyDice}>
+              <Text style={styles.actionBtnText}>Copy Dice</Text>
+            </Pressable>
+          </View>
+          <View style={styles.actionRow}>
+            <Pressable style={styles.actionBtn} onPress={handleInsertTotal}>
+              <Text style={styles.actionBtnText}>Insert Total</Text>
+            </Pressable>
             <Pressable style={styles.actionBtn} onPress={handleInsertDice}>
-              <Text style={styles.actionBtnText}>Copy Breakdown</Text>
+              <Text style={styles.actionBtnText}>Insert Dice</Text>
             </Pressable>
           </View>
         </>
