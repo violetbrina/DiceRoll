@@ -59,14 +59,14 @@ export default function App(): React.JSX.Element {
             )
             .join('') ?? '';
           if (!recognized.trim()) return;
-          handleRoll(recognized.trim());
+          setNotation(recognized.trim());
         } catch {
           // Silently ignore — user can type manually
         }
       },
     });
     return () => sub?.remove?.();
-  }, [animationEnabled]);
+  }, []);
 
   const handleRoll = useCallback(
     (inputNotation?: string) => {
