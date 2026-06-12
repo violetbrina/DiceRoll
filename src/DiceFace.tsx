@@ -8,61 +8,132 @@ interface Props {
   size?: number;
 }
 
-// Returns SVG polygon points for die shapes, normalised to a 0-0 to size-size box
-function getPolygonPoints(sides: DieType, cx: number, cy: number, r: number): string {
-  switch (sides) {
-    case 4:
-      // Triangle (pointing up)
-      return [
-        [cx, cy - r],
-        [cx + r * 0.866, cy + r * 0.5],
-        [cx - r * 0.866, cy + r * 0.5],
-      ].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-    case 6:
-      // Square (rotated 45deg = diamond, but for d6 we want a square)
-      return [
-        [cx - r * 0.75, cy - r * 0.75],
-        [cx + r * 0.75, cy - r * 0.75],
-        [cx + r * 0.75, cy + r * 0.75],
-        [cx - r * 0.75, cy + r * 0.75],
-      ].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-    case 8:
-      // Diamond (square rotated 45deg)
-      return [
-        [cx, cy - r],
-        [cx + r, cy],
-        [cx, cy + r],
-        [cx - r, cy],
-      ].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-    default:
-      return regularPolygon(sides === 100 ? 20 : sides, cx, cy, r);
+// Triangle (up = d4, down = d20) using the React Native border trick.
+// Outer black triangle + inner white triangle create an outlined look.
+function TriangleFace({
+  direction,
+  value,
+  size,
+}: {
+  direction: 'up' | 'down';
+  value: number;
+  size: number;
+}) {
+  const halfW = Math.round(size * 0.46);
+  const h = Math.round(size * 0.8);
+  const border = 2;
+  const innerHalfW = halfW - border * 2;
+  const innerH = h - border * 3;
+
+  if (direction === 'up') {
+    return (
+      <View style={[styles.wrapper, { width: size, height: size }]}>
+        <View style={{ width: size, height: h, position: 'relative' }}>
+          {/* Outer black upward triangle */}
+          <View
+            style={{
+              position: 'absolute',
+              left: Math.round(size / 2) - halfW,
+              top: 0,
+              width: 0,
+              height: 0,
+              borderLeftWidth: halfW,
+              borderRightWidth: halfW,
+              borderBottomWidth: h,
+              borderLeftColor: 'transparent',
+              borderRightColor: 'transparent',
+              borderBottomColor: '#000',
+            }}
+          />
+          {/* Inner white upward triangle (creates outline) */}
+          <View
+            style={{
+              position: 'absolute',
+              left: Math.round(size / 2) - innerHalfW,
+              top: border * 2,
+              width: 0,
+              height: 0,
+              borderLeftWidth: innerHalfW,
+              borderRightWidth: innerHalfW,
+              borderBottomWidth: innerH,
+              borderLeftColor: 'transparent',
+              borderRightColor: 'transparent',
+              borderBottomColor: '#fff',
+            }}
+          />
+          {/* Number near bottom of triangle */}
+          <Text
+            style={[
+              styles.triValue,
+              { fontSize: size * 0.28, bottom: size * 0.04, width: size },
+            ]}
+          >
+            {value}
+          </Text>
+        </View>
+      </View>
+    );
   }
+
+  // Downward triangle (d20)
+  return (
+    <View style={[styles.wrapper, { width: size, height: size }]}>
+      <View style={{ width: size, height: h, position: 'relative' }}>
+        {/* Outer black downward triangle */}
+        <View
+          style={{
+            position: 'absolute',
+            left: Math.round(size / 2) - halfW,
+            bottom: 0,
+            width: 0,
+            height: 0,
+            borderLeftWidth: halfW,
+            borderRightWidth: halfW,
+            borderTopWidth: h,
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderTopColor: '#000',
+          }}
+        />
+        {/* Inner white downward triangle (creates outline) */}
+        <View
+          style={{
+            position: 'absolute',
+            left: Math.round(size / 2) - innerHalfW,
+            bottom: border * 2,
+            width: 0,
+            height: 0,
+            borderLeftWidth: innerHalfW,
+            borderRightWidth: innerHalfW,
+            borderTopWidth: innerH,
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderTopColor: '#fff',
+          }}
+        />
+        {/* Number near top of downward triangle */}
+        <Text
+          style={[
+            styles.triValue,
+            { fontSize: size * 0.28, top: size * 0.04, width: size },
+          ]}
+        >
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
 }
-
-function regularPolygon(n: number, cx: number, cy: number, r: number): string {
-  const points: string[] = [];
-  for (let i = 0; i < n; i++) {
-    const angle = (2 * Math.PI * i) / n - Math.PI / 2;
-    points.push(`${(cx + r * Math.cos(angle)).toFixed(1)},${(cy + r * Math.sin(angle)).toFixed(1)}`);
-  }
-  return points.join(' ');
-}
-
-// Since React Native doesn't include SVG by default, we use a View-based approach
-// with borders to approximate shapes. For a clean e-ink result we use a simple
-// bordered box with the number inside — extensible to react-native-svg if added later.
-
-const SHAPE_STYLES: Record<DieType, object> = {
-  4: { borderRadius: 0, transform: [{ rotate: '0deg' }] },
-  6: { borderRadius: 4 },
-  8: { borderRadius: 0, transform: [{ rotate: '45deg' }] },
-  10: { borderRadius: 8 },
-  12: { borderRadius: 12 },
-  20: { borderRadius: 999 },
-  100: { borderRadius: 999, borderWidth: 3 },
-};
 
 export default function DiceFace({ sides, value, size = 64 }: Props) {
+  if (sides === 4) {
+    return <TriangleFace direction="up" value={value} size={size} />;
+  }
+  if (sides === 20) {
+    return <TriangleFace direction="down" value={value} size={size} />;
+  }
+
+  const faceStyle = SHAPE_STYLES[sides] ?? SHAPE_STYLES[100];
   const isRotated = sides === 8;
 
   return (
@@ -70,8 +141,11 @@ export default function DiceFace({ sides, value, size = 64 }: Props) {
       <View
         style={[
           styles.face,
-          { width: size * 0.85, height: size * 0.85 },
-          SHAPE_STYLES[sides],
+          // d10 uses a tall oval: wider in one axis
+          sides === 10
+            ? { width: size * 0.72, height: size * 0.9 }
+            : { width: size * 0.85, height: size * 0.85 },
+          faceStyle,
         ]}
       >
         <Text
@@ -88,6 +162,15 @@ export default function DiceFace({ sides, value, size = 64 }: Props) {
   );
 }
 
+// Shape styles per die type (d4 and d20 handled separately via TriangleFace)
+const SHAPE_STYLES: Partial<Record<DieType, object>> = {
+  6: { borderRadius: 4 },                      // Square
+  8: { borderRadius: 0, transform: [{ rotate: '45deg' }] }, // Diamond
+  10: { borderRadius: 999 },                   // Tall oval (circle on tall rect)
+  12: { borderRadius: 14 },                    // Rounded pentagon-ish
+  100: { borderRadius: 999, borderWidth: 3 },  // Double-bordered circle
+};
+
 const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
@@ -102,6 +185,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   value: {
+    color: '#000',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  triValue: {
+    position: 'absolute',
     color: '#000',
     fontWeight: 'bold',
     textAlign: 'center',
