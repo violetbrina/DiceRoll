@@ -4,7 +4,7 @@
 
 import {AppRegistry, Image} from 'react-native';
 import App from './App';
-import {name as appName} from './app.json';
+import {name as appName, displayName} from './app.json';
 
 import { PluginManager } from 'sn-plugin-lib';
 
@@ -14,7 +14,7 @@ PluginManager.init();
 
 PluginManager.registerButton(1, ['NOTE', 'DOC'], {
   id: 100,
-  name: 'Side Button',
+  name: displayName,
   icon: Image.resolveAssetSource(
     require('./assets/icon.png'),
   ).uri,
@@ -23,7 +23,7 @@ PluginManager.registerButton(1, ['NOTE', 'DOC'], {
 
 PluginManager.registerButton(2, ['NOTE', 'DOC'], {
   id: 200,
-  name: 'Lasso Button',
+  name: displayName,
   icon: Image.resolveAssetSource(
     require('./assets/icon.png'),
   ).uri,
@@ -33,7 +33,7 @@ PluginManager.registerButton(2, ['NOTE', 'DOC'], {
 
 PluginManager.registerButton(3, ['NOTE', 'DOC'], {
   id: 300,
-  name: 'Selection Button',
+  name: displayName,
   icon: Image.resolveAssetSource(
     require('./assets/icon.png'),
   ).uri,

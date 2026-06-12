@@ -1,7 +1,7 @@
 {
-  "name": "dice_roll",
+  "name": "Dice Roll",
   "desc": "",
-  "iconPath": "",
+  "iconPath": "assets/icon.png",
   "versionName": "0.0.1",
   "versionCode": "1",
   "pluginID": "475oxpaxcsnzr60t",
