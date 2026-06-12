@@ -7,11 +7,10 @@ import {
   ScrollView,
   StyleSheet,
   Clipboard,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PluginManager, PluginCommAPI, PluginNoteAPI } from 'sn-plugin-lib';
+import { PluginManager, PluginCommAPI } from 'sn-plugin-lib';
 import { parseDiceNotation, RollResult, DieResult } from './src/diceUtils';
 import DiceFace from './src/DiceFace';
 
@@ -113,19 +112,13 @@ export default function App(): React.JSX.Element {
     Clipboard.setString(String(result.total));
   }, [result]);
 
-  const handleInsertDice = useCallback(async () => {
+  const handleInsertDice = useCallback(() => {
     if (!result) return;
-    // Phase 2: capture DiceGrid ref as PNG and call PluginNoteAPI.insertImage(path)
-    // For now, fall back to a text representation
+    const d6Faces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
     const textRepr = result.dice
-      .map(d => `[d${d.sides}:${d.value}]`)
+      .map(d => d.sides === 6 && d.value <= 6 ? d6Faces[d.value] : `[d${d.sides}:${d.value}]`)
       .join(' ') + ` = ${result.total}`;
-    try {
-      // Try to use insertText if insertImage isn't yet wired up
-      Alert.alert('Insert Dice', `Will insert: ${textRepr}\n\n(PNG insert available in next update)`);
-    } catch {
-      Clipboard.setString(textRepr);
-    }
+    Clipboard.setString(textRepr);
   }, [result]);
 
   const handleClose = useCallback(() => {
@@ -181,7 +174,7 @@ export default function App(): React.JSX.Element {
           style={[styles.toggle, animationEnabled && styles.toggleOn]}
           onPress={toggleAnimation}
         >
-          <Text style={styles.toggleText}>{animationEnabled ? 'ON' : 'OFF'}</Text>
+          <Text style={[styles.toggleText, animationEnabled && styles.toggleTextOn]}>{animationEnabled ? 'ON' : 'OFF'}</Text>
         </Pressable>
       </View>
 
@@ -211,7 +204,7 @@ export default function App(): React.JSX.Element {
               <Text style={styles.actionBtnText}>Copy Total</Text>
             </Pressable>
             <Pressable style={styles.actionBtn} onPress={handleInsertDice}>
-              <Text style={styles.actionBtnText}>Insert Dice</Text>
+              <Text style={styles.actionBtnText}>Copy Breakdown</Text>
             </Pressable>
           </View>
         </>
@@ -287,6 +280,7 @@ const styles = StyleSheet.create({
   },
   toggleOn: { backgroundColor: '#000' },
   toggleText: { fontSize: 14, fontWeight: '700', color: '#000' },
+  toggleTextOn: { color: '#fff' },
   divider: { height: 2, backgroundColor: '#000', marginVertical: 16 },
   diceGrid: {
     flexDirection: 'row',
