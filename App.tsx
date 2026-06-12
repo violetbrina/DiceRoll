@@ -170,17 +170,28 @@ export default function App(): React.JSX.Element {
       </View>
 
       {/* Input */}
-      <TextInput
-        style={styles.input}
-        value={notation}
-        onChangeText={setNotation}
-        placeholder="Enter dice notation (e.g. 4d6, 2d20+3)"
-        placeholderTextColor="#888"
-        autoCapitalize="none"
-        autoCorrect={false}
-        onSubmitEditing={() => handleRoll()}
-        returnKeyType="go"
-      />
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          value={notation}
+          onChangeText={setNotation}
+          placeholder="Enter dice notation (e.g. 4d6, 2d20+3)"
+          placeholderTextColor="#888"
+          autoCapitalize="none"
+          autoCorrect={false}
+          onSubmitEditing={() => handleRoll()}
+          returnKeyType="go"
+        />
+        {notation.length > 0 ? (
+          <Pressable
+            style={styles.clearBtn}
+            onPress={() => setNotation('')}
+            hitSlop={8}
+          >
+            <Text style={styles.clearBtnText}>✕</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       <Pressable
         style={[styles.rollBtn, isAnimating && styles.rollBtnDisabled]}
@@ -273,6 +284,7 @@ const styles = StyleSheet.create({
     borderColor: '#000',
     borderRadius: 6,
     paddingHorizontal: 14,
+    paddingRight: 44,
     paddingVertical: 12,
     fontSize: 18,
     color: '#000',
@@ -344,4 +356,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionBtnText: { fontSize: 16, fontWeight: '600', color: '#000' },
+  inputRow: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  clearBtn: {
+    position: 'absolute',
+    right: 10,
+    top: 0,
+    bottom: 12,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  clearBtnText: { fontSize: 16, color: '#555', fontWeight: '600' },
 });
