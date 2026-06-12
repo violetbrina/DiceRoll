@@ -12,13 +12,20 @@ AppRegistry.registerComponent(appName, () => App);
 
 PluginManager.init();
 
+const SHOW_DATA = {
+  showType: 1,
+  regionType: 1,
+  regionWidth: 900,
+  regionHeight: 1300,
+};
+
 PluginManager.registerButton(1, ['NOTE', 'DOC'], {
   id: 100,
   name: displayName,
   icon: Image.resolveAssetSource(
     require('./assets/icon.png'),
   ).uri,
-  showType: 1,
+  ...SHOW_DATA,
 });
 
 PluginManager.registerButton(2, ['NOTE', 'DOC'], {
@@ -28,7 +35,7 @@ PluginManager.registerButton(2, ['NOTE', 'DOC'], {
     require('./assets/icon.png'),
   ).uri,
   editDataTypes: [0, 1, 2, 3, 4],
-  showType: 1,
+  ...SHOW_DATA,
 });
 
 PluginManager.registerButton(3, ['NOTE', 'DOC'], {
@@ -37,5 +44,5 @@ PluginManager.registerButton(3, ['NOTE', 'DOC'], {
   icon: Image.resolveAssetSource(
     require('./assets/icon.png'),
   ).uri,
-  showType: 1,
+  ...SHOW_DATA,
 });
