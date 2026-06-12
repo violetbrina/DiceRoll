@@ -18,7 +18,7 @@ const ANIMATION_PREF_KEY = '@dice_roll:animation_enabled';
 const LASSO_BUTTON_ID = 200;
 const SELECTION_BUTTON_ID = 300;
 
-const ANIMATION_FRAMES = 3;
+const ANIMATION_FRAMES = 5;
 const ANIMATION_FRAME_MS = 180;
 
 function randomFace(sides: number): number {
@@ -29,7 +29,7 @@ export default function App(): React.JSX.Element {
   const [notation, setNotation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RollResult | null>(null);
-  const [animationEnabled, setAnimationEnabled] = useState(true);
+  const [animationEnabled, setAnimationEnabled] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animatedDice, setAnimatedDice] = useState<DieResult[]>([]);
   const pendingResult = useRef<RollResult | null>(null);
