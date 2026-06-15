@@ -1,4 +1,4 @@
-export type DieType = 4 | 6 | 8 | 10 | 12 | 20 | 100;
+export type DieType = 2 | 4 | 6 | 8 | 10 | 12 | 20 | 100;
 
 export interface DieResult {
   sides: DieType;
@@ -19,7 +19,7 @@ export type ParseResult =
   | { ok: true; result: RollResult }
   | { ok: false; error: ParseError };
 
-const VALID_DICE: DieType[] = [4, 6, 8, 10, 12, 20, 100];
+const VALID_DICE: DieType[] = [2, 4, 6, 8, 10, 12, 20, 100];
 
 // NdX+NdY
 const TWO_DICE_RE = /^(\d+)d(\d+)\+(\d+)d(\d+)$/i;
@@ -47,7 +47,7 @@ function err(message: string): ParseResult {
 function validateGroup(count: number, sides: number): ParseResult | null {
   if (!isDieType(sides)) {
     return err(
-      `Unknown die type: d${sides}. Supported: d4, d6, d8, d10, d12, d20, d100`,
+      `Unknown die type: d${sides}. Supported: d2, d4, d6, d8, d10, d12, d20, d100`,
     );
   }
   if (count < 1 || count > 100) {
