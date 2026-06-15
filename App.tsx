@@ -53,11 +53,7 @@ export default function App(): React.JSX.Element {
             elementsRes.result,
             { width: 1600, height: 1872 },
           );
-          const recognized: string = recognRes?.result
-            ?.map((e: { recognizeResult?: { predict_name?: string } }) =>
-              e?.recognizeResult?.predict_name ?? '',
-            )
-            .join('') ?? '';
+          const recognized = String(recognRes?.result ?? '');
           const trimmed = recognized.trim();
           if (!trimmed) {
             setNotation('');
