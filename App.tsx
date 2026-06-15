@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PluginManager, PluginCommAPI, PluginNoteAPI } from 'sn-plugin-lib';
+import { PluginManager, PluginCommAPI, PluginNoteAPI, PluginFileAPI } from 'sn-plugin-lib';
 import { parseDiceNotation, RollResult, DieResult } from './src/diceUtils';
 import DiceFace from './src/DiceFace';
 
@@ -47,11 +47,45 @@ export default function App(): React.JSX.Element {
       onButtonPress: async (msg: { id: number }) => {
         if (msg.id !== LASSO_BUTTON_ID && msg.id !== SELECTION_BUTTON_ID) return;
         try {
-          const elementsRes = await PluginCommAPI.getLassoElements();
+          // 1. If selection includes text boxes, use their content directly — no OCR needed.
+          const textRes: any = await PluginNoteAPI.getLassoText();
+          const textBoxes: any[] = textRes?.result ?? [];
+          if (Array.isArray(textBoxes) && textBoxes.length > 0) {
+            const joined = textBoxes
+              .map((t: any) => String(t?.textContentFull ?? ''))
+              .join(' ')
+              .trim();
+            if (joined) {
+              setNotation(joined);
+              setError(null);
+              return;
+            }
+          }
+
+          // 2. Otherwise fall back to handwriting OCR on lasso elements.
+          const elementsRes: any = await PluginCommAPI.getLassoElements();
           if (!elementsRes?.success || !elementsRes.result?.length) return;
-          const recognRes = await PluginCommAPI.recognizeElements(
+
+          // Resolve actual page dimensions; recognizeElements needs page-size in pixels.
+          let size = { width: 1404, height: 1872 };
+          try {
+            const pathRes: any = await PluginCommAPI.getCurrentFilePath();
+            const pageRes: any = await PluginCommAPI.getCurrentPageNum();
+            const notePath = pathRes?.result;
+            const page = pageRes?.result;
+            if (typeof notePath === 'string' && typeof page === 'number') {
+              const sizeRes: any = await PluginFileAPI.getPageSize(notePath, page);
+              if (sizeRes?.success && sizeRes.result?.width && sizeRes.result?.height) {
+                size = { width: sizeRes.result.width, height: sizeRes.result.height };
+              }
+            }
+          } catch {
+            // fall through with default size
+          }
+
+          const recognRes: any = await PluginCommAPI.recognizeElements(
             elementsRes.result,
-            { width: 1600, height: 1872 },
+            size,
           );
           const recognized = String(recognRes?.result ?? '');
           const trimmed = recognized.trim();

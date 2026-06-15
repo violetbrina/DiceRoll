@@ -654,14 +654,17 @@ new_zip_package() {
 
 # =========================================================
 # Function: rename_to_snplg_file
-# Purpose: Copy zip to project_name.snplg
-# Params: $1 zip path; $2 project name
+# Purpose: Copy zip to project_name.version.snplg
+# Params: $1 zip path; $2 project name; $3 version
 # Returns: print .snplg file path
 # =========================================================
 rename_to_snplg_file() {
     local zip_file_path="$1"
     local project_name="$2"
-    local snplg="${zip_file_path%/*}/$project_name.snplg"
+    local version="${3:-}"
+    local base="$project_name"
+    [[ -n "$version" ]] && base="${project_name}.${version}"
+    local snplg="${zip_file_path%/*}/${base}.snplg"
     cp "$zip_file_path" "$snplg"
     write_color_output "Plugin package created: $snplg" "Green"
     echo "$snplg"
@@ -731,7 +734,7 @@ main() {
     outputs_dir="$(ensure_build_outputs_directory "$project_root")"
     local zip_path="$outputs_dir/${PACKAGE_NAME}.zip"
     if new_zip_package "$gen_dir" "$zip_path"; then
-        rename_to_snplg_file "$zip_path" "$PACKAGE_NAME" >/dev/null
+        rename_to_snplg_file "$zip_path" "$PACKAGE_NAME" "$PACKAGE_VERSION" >/dev/null
     fi
 
     write_color_output "Build process completed" "Blue"
