@@ -127,17 +127,32 @@ describe('parseDiceNotation — case insensitivity', () => {
   });
 });
 
-describe('parseDiceNotation — invalid die type', () => {
-  it('1d99 returns error with helpful message', () => {
-    const r = parseDiceNotation('1d99');
+describe('parseDiceNotation — arbitrary die type d2..d100', () => {
+  it('1d7 is valid (no dedicated art, within range)', () => {
+    const r = parseDiceNotation('1d7');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.result.dice[0].sides).toBe(7);
+    expect(r.result.dice[0].value).toBeGreaterThanOrEqual(1);
+    expect(r.result.dice[0].value).toBeLessThanOrEqual(7);
+  });
+  it('1d99 is valid', () => {
+    expect(parseDiceNotation('1d99').ok).toBe(true);
+  });
+  it('1d2 is valid (lower bound)', () => {
+    expect(parseDiceNotation('1d2').ok).toBe(true);
+  });
+  it('1d1 returns an error (below 2) with helpful message', () => {
+    const r = parseDiceNotation('1d1');
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.error.message).toMatch(/d99/);
-    expect(r.error.message).toMatch(/Supported/);
+    expect(r.error.message).toMatch(/d2 to d100/);
   });
-  it('1d7 returns error', () => {
-    const r = parseDiceNotation('1d7');
+  it('1d101 returns an error (over 100)', () => {
+    const r = parseDiceNotation('1d101');
     expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.message).toMatch(/d2 to d100/);
   });
 });
 

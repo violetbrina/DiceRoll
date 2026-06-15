@@ -1,4 +1,9 @@
-export type DieType = 2 | 4 | 6 | 8 | 10 | 12 | 20 | 100;
+// Any integer number of sides from 2 to 100 is a valid die. Types with no
+// dedicated artwork (e.g. d7) fall back to the circle placeholder at render time.
+export type DieType = number;
+
+export const MIN_SIDES = 2;
+export const MAX_SIDES = 100;
 
 export interface DieResult {
   sides: DieType;
@@ -19,8 +24,6 @@ export type ParseResult =
   | { ok: true; result: RollResult }
   | { ok: false; error: ParseError };
 
-const VALID_DICE: DieType[] = [2, 4, 6, 8, 10, 12, 20, 100];
-
 // A single signed term: either a dice group (NdX) or a flat numeric modifier.
 const TERM_RE = /[+-]?(?:\d+d\d+|\d+)/g;
 const DICE_TERM_RE = /^(\d+)d(\d+)$/;
@@ -33,18 +36,14 @@ export function rollDice(sides: DieType, count: number): DieResult[] {
   return results;
 }
 
-function isDieType(n: number): n is DieType {
-  return (VALID_DICE as number[]).includes(n);
-}
-
 function err(message: string): ParseResult {
   return { ok: false, error: { message } };
 }
 
 function validateGroup(count: number, sides: number): ParseResult | null {
-  if (!isDieType(sides)) {
+  if (sides < MIN_SIDES || sides > MAX_SIDES) {
     return err(
-      `Unknown die type: d${sides}. Supported: d2, d4, d6, d8, d10, d12, d20, d100`,
+      `Die type d${sides} is not supported. Use d${MIN_SIDES} to d${MAX_SIDES}.`,
     );
   }
   if (count < 1 || count > 100) {

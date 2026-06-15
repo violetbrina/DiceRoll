@@ -9,12 +9,11 @@ import {
   Clipboard,
   ActivityIndicator,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { captureRef } from 'react-native-view-shot';
 import { PluginManager, PluginCommAPI, PluginNoteAPI, PluginFileAPI } from 'sn-plugin-lib';
 import { parseDiceNotation, RollResult, DieResult } from './src/diceUtils';
 import DiceFace from './src/DiceFace';
 
-const ANIMATION_PREF_KEY = '@dice_roll:animation_enabled';
 const LASSO_BUTTON_ID = 200;
 const SELECTION_BUTTON_ID = 300;
 
@@ -33,13 +32,8 @@ export default function App(): React.JSX.Element {
   const [isAnimating, setIsAnimating] = useState(false);
   const [animatedDice, setAnimatedDice] = useState<DieResult[]>([]);
   const pendingResult = useRef<RollResult | null>(null);
-
-  // Load animation preference on mount
-  useEffect(() => {
-    AsyncStorage.getItem(ANIMATION_PREF_KEY).then(val => {
-      if (val !== null) setAnimationEnabled(val === 'true');
-    });
-  }, []);
+  // Off-screen view holding the rolled dice row; captured to a single PNG on insert.
+  const diceShotRef = useRef<View>(null);
 
   // Register lasso / selection button listener
   useEffect(() => {
@@ -137,32 +131,15 @@ export default function App(): React.JSX.Element {
     [notation, animationEnabled],
   );
 
-  const toggleAnimation = useCallback(async () => {
-    const next = !animationEnabled;
-    setAnimationEnabled(next);
-    await AsyncStorage.setItem(ANIMATION_PREF_KEY, String(next));
-  }, [animationEnabled]);
+  const toggleAnimation = useCallback(() => {
+    setAnimationEnabled(prev => !prev);
+  }, []);
 
   const handleCopyTotal = useCallback(() => {
     if (!result) return;
     Clipboard.setString(String(result.total));
     PluginManager.closePluginView();
   }, [result]);
-
-  const d6Faces = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-
-  const getDiceText = useCallback(() => {
-    if (!result) return '';
-    return result.dice
-      .map(d => d.sides === 6 && d.value <= 6 ? d6Faces[d.value] : `[d${d.sides}:${d.value}]`)
-      .join(' ');
-  }, [result]);
-
-  const handleCopyDice = useCallback(() => {
-    if (!result) return;
-    Clipboard.setString(getDiceText());
-    PluginManager.closePluginView();
-  }, [result, getDiceText]);
 
   const handleInsertTotal = useCallback(async () => {
     if (!result) return;
@@ -176,13 +153,27 @@ export default function App(): React.JSX.Element {
 
   const handleInsertDice = useCallback(async () => {
     if (!result) return;
-    await PluginNoteAPI.insertText({
-      textContentFull: getDiceText(),
-      textRect: { left: 100, top: 100, right: 1100, bottom: 220 },
-      fontSize: 72,
-    });
-    PluginManager.closePluginView();
-  }, [result, getDiceText]);
+    // Capture the off-screen dice row (the same composites shown in the preview)
+    // into one PNG and insert it as a single movable image. This is the only way
+    // to place multiple dice as one object: the host's insertImage takes a path
+    // with no position, so separate inserts would stack on top of each other.
+    try {
+      const uri = await captureRef(diceShotRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+      const path = uri.replace(/^file:\/\//, '');
+      const res: any = await PluginNoteAPI.insertImage(path);
+      if (res && res.success === false) {
+        setError(`Insert failed: ${res.error?.message ?? 'unknown error'}`);
+        return;
+      }
+      PluginManager.closePluginView();
+    } catch (e: any) {
+      setError(`Could not render dice image: ${e?.message ?? String(e)}`);
+    }
+  }, [result]);
 
   const handleClose = useCallback(() => {
     PluginManager.closePluginView();
@@ -282,9 +273,6 @@ export default function App(): React.JSX.Element {
             <Pressable style={styles.actionBtn} onPress={handleCopyTotal}>
               <Text style={styles.actionBtnText}>Copy Total</Text>
             </Pressable>
-            <Pressable style={styles.actionBtn} onPress={handleCopyDice}>
-              <Text style={styles.actionBtnText}>Copy Dice</Text>
-            </Pressable>
           </View>
           <View style={styles.actionRow}>
             <Pressable style={styles.actionBtn} onPress={handleInsertTotal}>
@@ -302,6 +290,15 @@ export default function App(): React.JSX.Element {
       ) : null}
         </ScrollView>
       </View>
+
+      {/* Off-screen dice row captured to a single PNG for "Insert Dice". */}
+      {result ? (
+        <View ref={diceShotRef} collapsable={false} style={styles.captureRow}>
+          {result.dice.map((die, i) => (
+            <DiceFace key={`shot-${i}`} sides={die.sides} value={die.value} size={120} />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -430,4 +427,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   clearBtnText: { fontSize: 16, color: '#555', fontWeight: '600' },
+  // Rendered off-screen (left far outside the viewport) but still laid out so
+  // react-native-view-shot can capture it. Transparent so the inserted PNG has
+  // no background box. No fixed width / no wrap so the captured image shrinks to
+  // exactly the dice — one tight row up to the last die, with no trailing space.
+  captureRow: {
+    position: 'absolute',
+    left: -10000,
+    top: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'transparent',
+    padding: 4,
+  },
 });

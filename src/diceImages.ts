@@ -3,7 +3,9 @@
 import { ImageSourcePropType } from 'react-native';
 
 type DiceImageMap = Record<number, Record<number, ImageSourcePropType>>;
+type CircleImageMap = Record<number, ImageSourcePropType>;
 
+// Dice with dedicated artwork; d100 reuses the d10 outline.
 export const DICE_IMAGES: DiceImageMap = {
   2: {
     1: require('../assets/dice/generated/d2-1.png'),
@@ -185,9 +187,113 @@ export const DICE_IMAGES: DiceImageMap = {
   },
 };
 
-// d100 reuses the d10 outline; every other die maps 1:1 to its own art.
+// Circle placeholder by rolled value, used for any die type without art.
+export const CIRCLE_IMAGES: CircleImageMap = {
+    1: require('../assets/dice/generated/dX-1.png'),
+    2: require('../assets/dice/generated/dX-2.png'),
+    3: require('../assets/dice/generated/dX-3.png'),
+    4: require('../assets/dice/generated/dX-4.png'),
+    5: require('../assets/dice/generated/dX-5.png'),
+    6: require('../assets/dice/generated/dX-6.png'),
+    7: require('../assets/dice/generated/dX-7.png'),
+    8: require('../assets/dice/generated/dX-8.png'),
+    9: require('../assets/dice/generated/dX-9.png'),
+    10: require('../assets/dice/generated/dX-10.png'),
+    11: require('../assets/dice/generated/dX-11.png'),
+    12: require('../assets/dice/generated/dX-12.png'),
+    13: require('../assets/dice/generated/dX-13.png'),
+    14: require('../assets/dice/generated/dX-14.png'),
+    15: require('../assets/dice/generated/dX-15.png'),
+    16: require('../assets/dice/generated/dX-16.png'),
+    17: require('../assets/dice/generated/dX-17.png'),
+    18: require('../assets/dice/generated/dX-18.png'),
+    19: require('../assets/dice/generated/dX-19.png'),
+    20: require('../assets/dice/generated/dX-20.png'),
+    21: require('../assets/dice/generated/dX-21.png'),
+    22: require('../assets/dice/generated/dX-22.png'),
+    23: require('../assets/dice/generated/dX-23.png'),
+    24: require('../assets/dice/generated/dX-24.png'),
+    25: require('../assets/dice/generated/dX-25.png'),
+    26: require('../assets/dice/generated/dX-26.png'),
+    27: require('../assets/dice/generated/dX-27.png'),
+    28: require('../assets/dice/generated/dX-28.png'),
+    29: require('../assets/dice/generated/dX-29.png'),
+    30: require('../assets/dice/generated/dX-30.png'),
+    31: require('../assets/dice/generated/dX-31.png'),
+    32: require('../assets/dice/generated/dX-32.png'),
+    33: require('../assets/dice/generated/dX-33.png'),
+    34: require('../assets/dice/generated/dX-34.png'),
+    35: require('../assets/dice/generated/dX-35.png'),
+    36: require('../assets/dice/generated/dX-36.png'),
+    37: require('../assets/dice/generated/dX-37.png'),
+    38: require('../assets/dice/generated/dX-38.png'),
+    39: require('../assets/dice/generated/dX-39.png'),
+    40: require('../assets/dice/generated/dX-40.png'),
+    41: require('../assets/dice/generated/dX-41.png'),
+    42: require('../assets/dice/generated/dX-42.png'),
+    43: require('../assets/dice/generated/dX-43.png'),
+    44: require('../assets/dice/generated/dX-44.png'),
+    45: require('../assets/dice/generated/dX-45.png'),
+    46: require('../assets/dice/generated/dX-46.png'),
+    47: require('../assets/dice/generated/dX-47.png'),
+    48: require('../assets/dice/generated/dX-48.png'),
+    49: require('../assets/dice/generated/dX-49.png'),
+    50: require('../assets/dice/generated/dX-50.png'),
+    51: require('../assets/dice/generated/dX-51.png'),
+    52: require('../assets/dice/generated/dX-52.png'),
+    53: require('../assets/dice/generated/dX-53.png'),
+    54: require('../assets/dice/generated/dX-54.png'),
+    55: require('../assets/dice/generated/dX-55.png'),
+    56: require('../assets/dice/generated/dX-56.png'),
+    57: require('../assets/dice/generated/dX-57.png'),
+    58: require('../assets/dice/generated/dX-58.png'),
+    59: require('../assets/dice/generated/dX-59.png'),
+    60: require('../assets/dice/generated/dX-60.png'),
+    61: require('../assets/dice/generated/dX-61.png'),
+    62: require('../assets/dice/generated/dX-62.png'),
+    63: require('../assets/dice/generated/dX-63.png'),
+    64: require('../assets/dice/generated/dX-64.png'),
+    65: require('../assets/dice/generated/dX-65.png'),
+    66: require('../assets/dice/generated/dX-66.png'),
+    67: require('../assets/dice/generated/dX-67.png'),
+    68: require('../assets/dice/generated/dX-68.png'),
+    69: require('../assets/dice/generated/dX-69.png'),
+    70: require('../assets/dice/generated/dX-70.png'),
+    71: require('../assets/dice/generated/dX-71.png'),
+    72: require('../assets/dice/generated/dX-72.png'),
+    73: require('../assets/dice/generated/dX-73.png'),
+    74: require('../assets/dice/generated/dX-74.png'),
+    75: require('../assets/dice/generated/dX-75.png'),
+    76: require('../assets/dice/generated/dX-76.png'),
+    77: require('../assets/dice/generated/dX-77.png'),
+    78: require('../assets/dice/generated/dX-78.png'),
+    79: require('../assets/dice/generated/dX-79.png'),
+    80: require('../assets/dice/generated/dX-80.png'),
+    81: require('../assets/dice/generated/dX-81.png'),
+    82: require('../assets/dice/generated/dX-82.png'),
+    83: require('../assets/dice/generated/dX-83.png'),
+    84: require('../assets/dice/generated/dX-84.png'),
+    85: require('../assets/dice/generated/dX-85.png'),
+    86: require('../assets/dice/generated/dX-86.png'),
+    87: require('../assets/dice/generated/dX-87.png'),
+    88: require('../assets/dice/generated/dX-88.png'),
+    89: require('../assets/dice/generated/dX-89.png'),
+    90: require('../assets/dice/generated/dX-90.png'),
+    91: require('../assets/dice/generated/dX-91.png'),
+    92: require('../assets/dice/generated/dX-92.png'),
+    93: require('../assets/dice/generated/dX-93.png'),
+    94: require('../assets/dice/generated/dX-94.png'),
+    95: require('../assets/dice/generated/dX-95.png'),
+    96: require('../assets/dice/generated/dX-96.png'),
+    97: require('../assets/dice/generated/dX-97.png'),
+    98: require('../assets/dice/generated/dX-98.png'),
+    99: require('../assets/dice/generated/dX-99.png'),
+    100: require('../assets/dice/generated/dX-100.png'),
+};
+
 export function diceImage(sides: number, value: number): ImageSourcePropType | undefined {
-  const byValue = DICE_IMAGES[sides];
-  if (!byValue) return undefined;
-  return byValue[value];
+  const dedicated = DICE_IMAGES[sides];
+  if (dedicated && dedicated[value]) return dedicated[value];
+  // Fall back to the circle placeholder for arbitrary die types (e.g. d7).
+  return CIRCLE_IMAGES[value];
 }
