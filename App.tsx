@@ -156,11 +156,13 @@ export default function App(): React.JSX.Element {
   const showResult = !isAnimating && result !== null;
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View style={styles.backdrop}>
+      <View style={styles.card}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Dice Roller</Text>
@@ -259,11 +261,31 @@ export default function App(): React.JSX.Element {
       {isAnimating ? (
         <ActivityIndicator style={{ marginTop: 8 }} color="#000" />
       ) : null}
-    </ScrollView>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    padding: 16,
+  },
+  card: {
+    width: 720,
+    height: 900,
+    maxWidth: '100%',
+    maxHeight: '100%',
+    borderWidth: 3,
+    borderColor: '#000',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
   scroll: { flex: 1, backgroundColor: '#fff' },
   container: {
     padding: 20,
