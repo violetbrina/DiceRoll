@@ -27,32 +27,34 @@ const MAP_FILE = path.join(ROOT, 'src', 'diceImages.ts');
 const OUT = 300;
 
 /**
- * Per-die layout.
- *  source : which outline PNG to draw (d100 reuses the d10 outline).
- *  values : how many faces (1..N).
- *  cx,cy  : centre of the front face, as a fraction of the canvas.
- *  faceW  : usable text width on that face, as a fraction of the canvas — the
- *           number is shrunk to fit this so multi-digit values never overflow.
- *  maxFont: cap on single-digit font size, as a fraction of the canvas.
+ * Per-die layout. Each die's number sits centred in its front face, sized to
+ * fit the front-face BOX so it never breaks out of the shape.
+ *  source     : which outline PNG to draw (d100 reuses the d10 outline).
+ *  values     : how many faces (1..N).
+ *  cx,cy      : centre of the front face, as a fraction of the canvas.
+ *  boxW,boxH  : the front face's usable width/height, as fractions of the
+ *               canvas. Font is shrunk to fit BOTH, so 1- and 3-digit values
+ *               (e.g. d100's "100") all stay inside the face.
  */
 const DICE = {
-  d2: { source: 'd2', values: 2, cx: 0.5, cy: 0.5, faceW: 0.5, maxFont: 0.42 },
-  d4: { source: 'd4', values: 4, cx: 0.5, cy: 0.62, faceW: 0.34, maxFont: 0.3 },
-  d6: { source: 'd6', values: 6, cx: 0.43, cy: 0.56, faceW: 0.36, maxFont: 0.34 },
-  d8: { source: 'd8', values: 8, cx: 0.5, cy: 0.54, faceW: 0.32, maxFont: 0.3 },
-  d10: { source: 'd10', values: 10, cx: 0.5, cy: 0.52, faceW: 0.34, maxFont: 0.3 },
-  d12: { source: 'd12', values: 12, cx: 0.5, cy: 0.52, faceW: 0.4, maxFont: 0.32 },
-  d20: { source: 'd20', values: 20, cx: 0.5, cy: 0.55, faceW: 0.34, maxFont: 0.3 },
-  d100: { source: 'd10', values: 100, cx: 0.5, cy: 0.52, faceW: 0.42, maxFont: 0.3 },
+  d2: { source: 'd2', values: 2, cx: 0.5, cy: 0.5, boxW: 0.5, boxH: 0.4 },
+  d4: { source: 'd4', values: 4, cx: 0.43, cy: 0.58, boxW: 0.24, boxH: 0.15 },
+  d6: { source: 'd6', values: 6, cx: 0.45, cy: 0.53, boxW: 0.32, boxH: 0.3 },
+  d8: { source: 'd8', values: 8, cx: 0.5, cy: 0.44, boxW: 0.26, boxH: 0.15 },
+  d10: { source: 'd10', values: 10, cx: 0.5, cy: 0.47, boxW: 0.28, boxH: 0.17 },
+  d12: { source: 'd12', values: 12, cx: 0.5, cy: 0.46, boxW: 0.3, boxH: 0.18 },
+  d20: { source: 'd20', values: 20, cx: 0.5, cy: 0.49, boxW: 0.22, boxH: 0.14 },
+  d100: { source: 'd10', values: 100, cx: 0.5, cy: 0.47, boxW: 0.38, boxH: 0.16 },
 };
 
 // Approximate width of one bold-sans glyph relative to font size.
-const GLYPH_RATIO = 0.62;
+const GLYPH_RATIO = 0.6;
 
 function fontSizeFor(cfg, value) {
   const nchars = String(value).length;
-  const widthLimited = (cfg.faceW * OUT) / (GLYPH_RATIO * nchars);
-  return Math.round(Math.min(cfg.maxFont * OUT, widthLimited));
+  const byWidth = (cfg.boxW * OUT) / (GLYPH_RATIO * nchars);
+  const byHeight = cfg.boxH * OUT; // digit cap-height ≈ 0.7·fontSize, so this fits with margin
+  return Math.round(Math.min(byWidth, byHeight));
 }
 
 function numberSvg(cfg, value) {

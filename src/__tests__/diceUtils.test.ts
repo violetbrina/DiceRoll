@@ -83,6 +83,35 @@ describe('parseDiceNotation — valid combined dice pool', () => {
   });
 });
 
+describe('parseDiceNotation — arbitrary number of dice groups', () => {
+  it('1d2+1d4+1d6+1d8+1d10+1d12+1d20+1d100 produces 8 dice across every type', () => {
+    const r = parseDiceNotation('1d2+1d4+1d6+1d8+1d10+1d12+1d20+1d100');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.result.dice).toHaveLength(8);
+    expect(r.result.dice.map(d => d.sides)).toEqual([2, 4, 6, 8, 10, 12, 20, 100]);
+    expect(r.result.modifier).toBe(0);
+  });
+  it('3d6+2d8+5 sums dice groups and the flat modifier', () => {
+    const r = parseDiceNotation('3d6+2d8+5');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.result.dice).toHaveLength(5);
+    expect(r.result.modifier).toBe(5);
+    const sum = r.result.dice.reduce((s, d) => s + d.value, 0);
+    expect(r.result.total).toBe(sum + 5);
+  });
+  it('2d6+3-1 combines multiple flat modifiers', () => {
+    const r = parseDiceNotation('2d6+3-1');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.result.modifier).toBe(2);
+  });
+  it('a leading minus on a dice group is invalid (-1d6)', () => {
+    expect(parseDiceNotation('-1d6').ok).toBe(false);
+  });
+});
+
 describe('parseDiceNotation — case insensitivity', () => {
   it('4D6 is parsed identically to 4d6', () => {
     const r = parseDiceNotation('4D6');

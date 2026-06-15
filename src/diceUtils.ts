@@ -21,12 +21,9 @@ export type ParseResult =
 
 const VALID_DICE: DieType[] = [2, 4, 6, 8, 10, 12, 20, 100];
 
-// NdX+NdY
-const TWO_DICE_RE = /^(\d+)d(\d+)\+(\d+)d(\d+)$/i;
-// NdX+/-N
-const MODIFIER_RE = /^(\d+)d(\d+)([-+]\d+)$/i;
-// NdX
-const SIMPLE_RE = /^(\d+)d(\d+)$/i;
+// A single signed term: either a dice group (NdX) or a flat numeric modifier.
+const TERM_RE = /[+-]?(?:\d+d\d+|\d+)/g;
+const DICE_TERM_RE = /^(\d+)d(\d+)$/;
 
 export function rollDice(sides: DieType, count: number): DieResult[] {
   const results: DieResult[] = [];
@@ -56,46 +53,40 @@ function validateGroup(count: number, sides: number): ParseResult | null {
   return null;
 }
 
+const INVALID = 'Invalid notation. Try: 4d6, 2d20+3, 1d8+1d6';
+
 export function parseDiceNotation(input: string): ParseResult {
   const s = input.replace(/\s/g, '').toLowerCase();
+  if (!s) return err(INVALID);
 
-  const two = s.match(TWO_DICE_RE);
-  if (two) {
-    const [, c1, d1, c2, d2] = two.map(Number);
-    const e1 = validateGroup(c1, d1);
-    if (e1) return e1;
-    const e2 = validateGroup(c2, d2);
-    if (e2) return e2;
-    const dice = [
-      ...rollDice(d1 as DieType, c1),
-      ...rollDice(d2 as DieType, c2),
-    ];
-    const total = dice.reduce((s, d) => s + d.value, 0);
-    return { ok: true, result: { dice, modifier: 0, total } };
+  // Tokenise into signed terms and require they cover the whole string —
+  // any leftover characters (e.g. "d6", "1d6x") mean the notation is invalid.
+  const terms = s.match(TERM_RE);
+  if (!terms || terms.join('') !== s) return err(INVALID);
+
+  const dice: DieResult[] = [];
+  let modifier = 0;
+
+  for (const term of terms) {
+    const sign = term.startsWith('-') ? -1 : 1;
+    const body = term.replace(/^[+-]/, '');
+    const group = body.match(DICE_TERM_RE);
+    if (group) {
+      // A dice group always adds to the pool; a leading '-' on it is invalid.
+      if (sign === -1) return err(INVALID);
+      const count = parseInt(group[1], 10);
+      const sides = parseInt(group[2], 10);
+      const e = validateGroup(count, sides);
+      if (e) return e;
+      dice.push(...rollDice(sides as DieType, count));
+    } else {
+      modifier += sign * parseInt(body, 10);
+    }
   }
 
-  const mod = s.match(MODIFIER_RE);
-  if (mod) {
-    const count = parseInt(mod[1], 10);
-    const sides = parseInt(mod[2], 10);
-    const modifier = parseInt(mod[3], 10);
-    const e = validateGroup(count, sides);
-    if (e) return e;
-    const dice = rollDice(sides as DieType, count);
-    const total = dice.reduce((s, d) => s + d.value, 0) + modifier;
-    return { ok: true, result: { dice, modifier, total } };
-  }
+  // At least one dice group is required — a bare number (e.g. "6") is not a roll.
+  if (dice.length === 0) return err(INVALID);
 
-  const simple = s.match(SIMPLE_RE);
-  if (simple) {
-    const count = parseInt(simple[1], 10);
-    const sides = parseInt(simple[2], 10);
-    const e = validateGroup(count, sides);
-    if (e) return e;
-    const dice = rollDice(sides as DieType, count);
-    const total = dice.reduce((s, d) => s + d.value, 0);
-    return { ok: true, result: { dice, modifier: 0, total } };
-  }
-
-  return err('Invalid notation. Try: 4d6, 2d20+3, 1d8+1d6');
+  const total = dice.reduce((sum, d) => sum + d.value, 0) + modifier;
+  return { ok: true, result: { dice, modifier, total } };
 }
