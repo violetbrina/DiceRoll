@@ -58,8 +58,14 @@ export default function App(): React.JSX.Element {
               e?.recognizeResult?.predict_name ?? '',
             )
             .join('') ?? '';
-          if (!recognized.trim()) return;
-          setNotation(recognized.trim());
+          const trimmed = recognized.trim();
+          if (!trimmed) {
+            setNotation('');
+            setError('OCR failed to detect text');
+            return;
+          }
+          setNotation(trimmed);
+          setError(null);
         } catch {
           // Silently ignore — user can type manually
         }
@@ -176,7 +182,10 @@ export default function App(): React.JSX.Element {
         <TextInput
           style={styles.input}
           value={notation}
-          onChangeText={setNotation}
+          onChangeText={(text) => {
+            setNotation(text);
+            if (error) setError(null);
+          }}
           placeholder="Enter dice notation (e.g. 4d6, 2d20+3)"
           placeholderTextColor="#888"
           autoCapitalize="none"
