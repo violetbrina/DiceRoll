@@ -98,6 +98,70 @@ async function darkBox(srcPath) {
   return { S: W, sw, sh, cx: minX + sw / 2, cy: minY + sh / 2 };
 }
 
+// Turn a "black line-art on white" source into a sticker stencil:
+//   - outside the outer outline  -> fully transparent
+//   - faces sealed inside it      -> pure white, opaque
+//   - lines / edges               -> pure black, opaque (anti-aliased)
+// The inside/outside split is found by flood-filling the white background in
+// from the image border; white sealed by the outline is never reached.
+async function buildStencil(srcPath, S) {
+  const { data } = await sharp(srcPath)
+    .grayscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true }); // 1 channel, length S*S
+
+  // Levels: pull lines to pure black and faces/background to pure white, while
+  // keeping anti-aliased greys in between (lo..hi -> 0..255).
+  const LO = 40;
+  const HI = 215;
+  const slope = 255 / (HI - LO);
+  const lev = new Uint8Array(S * S);
+  for (let i = 0; i < lev.length; i++) {
+    const v = (data[i] - LO) * slope;
+    lev[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+  }
+
+  // Flood fill the "outside" from every border pixel across near-white pixels.
+  const FILL = 200; // a pixel is background-fillable when leveled value > FILL
+  const outside = new Uint8Array(S * S);
+  const stack = [];
+  const seed = (x, y) => {
+    if (x < 0 || y < 0 || x >= S || y >= S) return;
+    const idx = y * S + x;
+    if (outside[idx] || lev[idx] <= FILL) return;
+    outside[idx] = 1;
+    stack.push(idx);
+  };
+  for (let x = 0; x < S; x++) {
+    seed(x, 0);
+    seed(x, S - 1);
+  }
+  for (let y = 0; y < S; y++) {
+    seed(0, y);
+    seed(S - 1, y);
+  }
+  while (stack.length) {
+    const idx = stack.pop();
+    const x = idx % S;
+    const y = (idx - x) / S;
+    seed(x + 1, y);
+    seed(x - 1, y);
+    seed(x, y + 1);
+    seed(x, y - 1);
+  }
+
+  const out = Buffer.alloc(S * S * 4);
+  for (let i = 0; i < S * S; i++) {
+    const g = lev[i];
+    const o = i * 4;
+    out[o] = g;
+    out[o + 1] = g;
+    out[o + 2] = g;
+    out[o + 3] = outside[i] ? 0 : 255; // transparent outside, opaque die
+  }
+  return out;
+}
+
 async function generate() {
   if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
@@ -118,11 +182,17 @@ async function generate() {
       const left = Math.round(box.cx * scale - OUT / 2);
       const top = Math.round(box.cy * scale - OUT / 2);
       const PAD = OUT; // guard so extract never runs out of bounds
+      // Build the transparent-background sticker stencil, then scale + centre it.
       // Two passes: sharp reorders resize/extract within one pipeline, so
       // materialise the scaled+padded image first, then extract the window.
-      const padded = await sharp(srcPath)
+      const stencil = await buildStencil(srcPath, box.S);
+      const transparent = { r: 0, g: 0, b: 0, alpha: 0 };
+      const padded = await sharp(stencil, {
+        raw: { width: box.S, height: box.S, channels: 4 },
+      })
         .resize(scaledSize, scaledSize)
-        .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: '#f6f6f5' })
+        .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: transparent })
+        .png()
         .toBuffer();
       const baseBuf = await sharp(padded)
         .extract({ left: left + PAD, top: top + PAD, width: OUT, height: OUT })
@@ -153,8 +223,9 @@ async function generate() {
       const outName = `${type}-${value}.png`;
       await sharp(baseBuf)
         .composite([{ input: numberSvg(value, ncx, ncy, fontSize), top: 0, left: 0 }])
-        // Pure b&w line art: an 8-colour palette keeps every file tiny.
-        .png({ palette: true, colours: 8, effort: 10, compressionLevel: 9 })
+        // Transparent background, white faces, black lines/text. Palette with
+        // dither:0 keeps files small without speckling the alpha edges.
+        .png({ palette: true, colours: 64, dither: 0, effort: 10, compressionLevel: 9 })
         .toFile(path.join(OUT_DIR, outName));
       valueLines.push(
         `    ${value}: require('../assets/dice/generated/${outName}'),`,

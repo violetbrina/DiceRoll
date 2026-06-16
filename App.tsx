@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Clipboard,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { PluginManager, PluginCommAPI, PluginNoteAPI, PluginFileAPI } from 'sn-plugin-lib';
@@ -19,6 +20,11 @@ const SELECTION_BUTTON_ID = 300;
 
 const ANIMATION_FRAMES = 5;
 const ANIMATION_FRAME_MS = 180;
+
+// Off-screen capture-row geometry (must match DiceFace wrapper margin and the
+// captureRow padding so the computed size equals the real laid-out size).
+const CAP_DICE_MARGIN = 4;
+const CAP_ROW_PAD = 4;
 
 function randomFace(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
@@ -100,6 +106,8 @@ export default function App(): React.JSX.Element {
 
   const handleRoll = useCallback(
     (inputNotation?: string) => {
+      // Take focus off the input (and hide the keyboard) when rolling.
+      Keyboard.dismiss();
       const input = (inputNotation ?? notation).trim();
       setError(null);
       const parsed = parseDiceNotation(input);
@@ -181,6 +189,15 @@ export default function App(): React.JSX.Element {
 
   const displayDice = isAnimating ? animatedDice : (result?.dice ?? []);
   const showResult = !isAnimating && result !== null;
+
+  // Kept dice + exact capture-row dimensions. Giving the off-screen row an
+  // explicit size makes view-shot capture a correct, square-per-die aspect
+  // (otherwise its height is mis-measured and the inserted image stretches).
+  const keptDice = result ? result.dice.filter(d => d.kept) : [];
+  const CAP_DIE = 120;
+  const CAP_FOOTPRINT = CAP_DIE + CAP_DICE_MARGIN * 2; // die + its wrapper margin
+  const capWidth = keptDice.length * CAP_FOOTPRINT + CAP_ROW_PAD * 2;
+  const capHeight = CAP_FOOTPRINT + CAP_ROW_PAD * 2;
 
   return (
     <View style={styles.backdrop}>
@@ -306,14 +323,17 @@ export default function App(): React.JSX.Element {
       </View>
 
       {/* Off-screen dice row captured to a single PNG for "Insert Dice".
-          Only the KEPT dice are included — dropped dice are never inserted. */}
+          Only the KEPT dice are included — dropped dice are never inserted.
+          Explicit width/height keep the captured aspect square per die. */}
       {result ? (
-        <View ref={diceShotRef} collapsable={false} style={styles.captureRow}>
-          {result.dice
-            .filter(die => die.kept)
-            .map((die, i) => (
-              <DiceFace key={`shot-${i}`} sides={die.sides} value={die.value} size={120} />
-            ))}
+        <View
+          ref={diceShotRef}
+          collapsable={false}
+          style={[styles.captureRow, { width: capWidth, height: capHeight }]}
+        >
+          {keptDice.map((die, i) => (
+            <DiceFace key={`shot-${i}`} sides={die.sides} value={die.value} size={CAP_DIE} />
+          ))}
         </View>
       ) : null}
     </View>
@@ -445,17 +465,16 @@ const styles = StyleSheet.create({
   },
   clearBtnText: { fontSize: 16, color: '#555', fontWeight: '600' },
   // Rendered off-screen (left far outside the viewport) but still laid out so
-  // react-native-view-shot can capture it. Transparent so the inserted PNG has
-  // no background box. No fixed width / no wrap so the captured image shrinks to
-  // exactly the dice — one tight row up to the last die, with no trailing space.
+  // react-native-view-shot can capture it. Explicit width/height (set inline)
+  // give it a correct, square-per-die aspect; transparent so the inserted image
+  // keeps the dice's transparent background (white faces, black lines only).
   captureRow: {
     position: 'absolute',
     left: -10000,
     top: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     backgroundColor: 'transparent',
-    padding: 4,
+    padding: CAP_ROW_PAD,
   },
 });
