@@ -26,21 +26,28 @@ const MAP_FILE = path.join(ROOT, 'src', 'diceImages.ts');
 // Output resolution: 2x the 150px insert size, crisp on e-ink, still tiny in b&w.
 const OUT = 300;
 
+// All dice are normalised to the SAME line-art height (TARGET_H_FRAC of the
+// canvas) and vertically centred, so a row of dice lines up exactly. The number
+// text scales with the die but is otherwise sized to fit its face box.
+const TARGET_H_FRAC = 0.84;
+const TARGET_H = TARGET_H_FRAC * OUT;
+
 /**
- * Per-die layout. Each die's number sits centred in its front face, sized to
- * fit the front-face BOX so it never breaks out of the shape.
+ * Per-die layout, expressed against the ORIGINAL source canvas (1:1 fractions).
  *  source     : which outline PNG to draw (d100 reuses the d10 outline).
  *  values     : how many faces (1..N).
- *  cx,cy      : centre of the front face, as a fraction of the canvas.
- *  boxW,boxH  : the front face's usable width/height, as fractions of the
+ *  cx,cy      : centre of the number, as a fraction of the source canvas.
+ *  boxW,boxH  : the face's usable width/height, as fractions of the source
  *               canvas. Font is shrunk to fit BOTH, so 1- and 3-digit values
  *               (e.g. d100's "100") all stay inside the face.
+ * These are transformed by the same scale+centre that normalises the die, so
+ * the number rides along with the art exactly as before.
  */
 const DICE = {
   d2: { source: 'd2', values: 2, cx: 0.5, cy: 0.5, boxW: 0.5, boxH: 0.4 },
-  d4: { source: 'd4', values: 4, cx: 0.43, cy: 0.58, boxW: 0.24, boxH: 0.15 },
+  d4: { source: 'd4', values: 4, cx: 0.47, cy: 0.55, boxW: 0.34, boxH: 0.22 },
   d6: { source: 'd6', values: 6, cx: 0.45, cy: 0.53, boxW: 0.32, boxH: 0.3 },
-  d8: { source: 'd8', values: 8, cx: 0.5, cy: 0.44, boxW: 0.26, boxH: 0.15 },
+  d8: { source: 'd8', values: 8, cx: 0.5, cy: 0.45, boxW: 0.38, boxH: 0.24 },
   d10: { source: 'd10', values: 10, cx: 0.5, cy: 0.47, boxW: 0.28, boxH: 0.17 },
   d12: { source: 'd12', values: 12, cx: 0.5, cy: 0.46, boxW: 0.3, boxH: 0.18 },
   d20: { source: 'd20', values: 20, cx: 0.5, cy: 0.49, boxW: 0.22, boxH: 0.14 },
@@ -54,57 +61,99 @@ const CIRCLE = { source: 'dX', values: 100, cx: 0.5, cy: 0.5, boxW: 0.5, boxH: 0
 // Approximate width of one bold-sans glyph relative to font size.
 const GLYPH_RATIO = 0.6;
 
-function fontSizeFor(cfg, value) {
-  const nchars = String(value).length;
-  const byWidth = (cfg.boxW * OUT) / (GLYPH_RATIO * nchars);
-  const byHeight = cfg.boxH * OUT; // digit cap-height ≈ 0.7·fontSize, so this fits with margin
-  return Math.round(Math.min(byWidth, byHeight));
-}
-
-function numberSvg(cfg, value) {
-  const fontSize = fontSizeFor(cfg, value);
-  const x = Math.round(cfg.cx * OUT);
-  const y = Math.round(cfg.cy * OUT);
+function numberSvg(value, x, y, fontSize) {
   return Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${OUT}" height="${OUT}">` +
-      `<text x="${x}" y="${y}" font-family="Helvetica, Arial, sans-serif" ` +
-      `font-size="${fontSize}" font-weight="bold" text-anchor="middle" ` +
-      `dominant-baseline="central" fill="#000">${value}</text>` +
+      `<text x="${Math.round(x)}" y="${Math.round(y)}" ` +
+      `font-family="Helvetica, Arial, sans-serif" font-size="${Math.round(fontSize)}" ` +
+      `font-weight="bold" text-anchor="middle" dominant-baseline="central" ` +
+      `fill="#000">${value}</text>` +
       `</svg>`,
   );
+}
+
+// Bounding box of the dark line-art within a source, plus its centre, in source
+// pixels. Used to normalise every die to a common height.
+async function darkBox(srcPath) {
+  const { data, info } = await sharp(srcPath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width: W, height: H, channels: C } = info;
+  let minX = W, minY = H, maxX = -1, maxY = -1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * C;
+      const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      if (lum < 128) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  const sw = maxX - minX + 1;
+  const sh = maxY - minY + 1;
+  return { S: W, sw, sh, cx: minX + sw / 2, cy: minY + sh / 2 };
 }
 
 async function generate() {
   if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  // Cache each resized outline so we composite onto it many times.
-  const baseCache = {};
-  async function base(source) {
-    if (!baseCache[source]) {
+  // Per-source: the dark-box geometry and a height-normalised, centred base
+  // image (the die scaled so its line-art height == TARGET_H, centred in OUT).
+  const sourceCache = {};
+  async function loadSource(source) {
+    if (!sourceCache[source]) {
       const srcPath = path.join(SRC_DIR, `${source}.png`);
       if (!fs.existsSync(srcPath)) {
         throw new Error(`Missing source outline: ${srcPath}`);
       }
-      baseCache[source] = await sharp(srcPath)
-        .resize(OUT, OUT, { fit: 'contain', background: '#00000000' })
+      const box = await darkBox(srcPath);
+      const scale = TARGET_H / box.sh; // scale that makes the line-art height uniform
+      const scaledSize = Math.round(box.S * scale);
+      // Window over the scaled source, centred on the dark-box centre, so every
+      // die ends up the same height and vertically centred in OUT.
+      const left = Math.round(box.cx * scale - OUT / 2);
+      const top = Math.round(box.cy * scale - OUT / 2);
+      const PAD = OUT; // guard so extract never runs out of bounds
+      // Two passes: sharp reorders resize/extract within one pipeline, so
+      // materialise the scaled+padded image first, then extract the window.
+      const padded = await sharp(srcPath)
+        .resize(scaledSize, scaledSize)
+        .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: '#f6f6f5' })
+        .toBuffer();
+      const baseBuf = await sharp(padded)
+        .extract({ left: left + PAD, top: top + PAD, width: OUT, height: OUT })
         .png()
         .toBuffer();
+      sourceCache[source] = { box, scale, baseBuf };
     }
-    return baseCache[source];
+    return sourceCache[source];
   }
 
   let count = 0;
 
-  // Composite every value of a config onto its outline, returning require() lines.
+  // Composite every value of a config onto its normalised base.
   async function renderConfig(type, cfg) {
-    const baseBuf = await base(cfg.source);
+    const { box, scale, baseBuf } = await loadSource(cfg.source);
+    const S = box.S;
     const valueLines = [];
     for (let value = 1; value <= cfg.values; value++) {
+      // Apply the same scale+centre transform used for the art to the number
+      // anchor and face box, so placement matches the original tuning exactly.
+      const ncx = OUT / 2 + scale * (cfg.cx * S - box.cx);
+      const ncy = OUT / 2 + scale * (cfg.cy * S - box.cy);
+      const bw = cfg.boxW * S * scale;
+      const bh = cfg.boxH * S * scale;
+      const nchars = String(value).length;
+      const fontSize = Math.min(bw / (GLYPH_RATIO * nchars), bh);
+
       const outName = `${type}-${value}.png`;
       await sharp(baseBuf)
-        .composite([{ input: numberSvg(cfg, value), top: 0, left: 0 }])
-        // Pure b&w line art: an 8-colour palette (black + a few anti-alias
-        // greys over transparency) keeps every file ~2KB with no visible loss.
+        .composite([{ input: numberSvg(value, ncx, ncy, fontSize), top: 0, left: 0 }])
+        // Pure b&w line art: an 8-colour palette keeps every file tiny.
         .png({ palette: true, colours: 8, effort: 10, compressionLevel: 9 })
         .toFile(path.join(OUT_DIR, outName));
       valueLines.push(
