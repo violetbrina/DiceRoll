@@ -30,6 +30,25 @@ function randomFace(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
 }
 
+// Current note page size in pixels, with an A4-ish fallback if it can't be read.
+async function getCurrentPageSize(): Promise<{ width: number; height: number }> {
+  try {
+    const pathRes: any = await PluginCommAPI.getCurrentFilePath();
+    const pageRes: any = await PluginCommAPI.getCurrentPageNum();
+    const notePath = pathRes?.result;
+    const page = pageRes?.result;
+    if (typeof notePath === 'string' && typeof page === 'number') {
+      const sizeRes: any = await PluginFileAPI.getPageSize(notePath, page);
+      if (sizeRes?.success && sizeRes.result?.width && sizeRes.result?.height) {
+        return { width: sizeRes.result.width, height: sizeRes.result.height };
+      }
+    }
+  } catch {
+    // fall through to the default below
+  }
+  return { width: 1404, height: 1872 };
+}
+
 export default function App(): React.JSX.Element {
   const [notation, setNotation] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -66,23 +85,8 @@ export default function App(): React.JSX.Element {
           const elementsRes: any = await PluginCommAPI.getLassoElements();
           if (!elementsRes?.success || !elementsRes.result?.length) return;
 
-          // Resolve actual page dimensions; recognizeElements needs page-size in pixels.
-          let size = { width: 1404, height: 1872 };
-          try {
-            const pathRes: any = await PluginCommAPI.getCurrentFilePath();
-            const pageRes: any = await PluginCommAPI.getCurrentPageNum();
-            const notePath = pathRes?.result;
-            const page = pageRes?.result;
-            if (typeof notePath === 'string' && typeof page === 'number') {
-              const sizeRes: any = await PluginFileAPI.getPageSize(notePath, page);
-              if (sizeRes?.success && sizeRes.result?.width && sizeRes.result?.height) {
-                size = { width: sizeRes.result.width, height: sizeRes.result.height };
-              }
-            }
-          } catch {
-            // fall through with default size
-          }
-
+          // recognizeElements needs the page size (in pixels).
+          const size = await getCurrentPageSize();
           const recognRes: any = await PluginCommAPI.recognizeElements(
             elementsRes.result,
             size,
@@ -151,9 +155,15 @@ export default function App(): React.JSX.Element {
 
   const handleInsertTotal = useCallback(async () => {
     if (!result) return;
+    // Centre the total on the page rather than dropping it in the top-left.
+    const { width, height } = await getCurrentPageSize();
+    const boxW = 400;
+    const boxH = 140;
+    const left = Math.round((width - boxW) / 2);
+    const top = Math.round((height - boxH) / 2);
     await PluginNoteAPI.insertText({
       textContentFull: String(result.total),
-      textRect: { left: 100, top: 100, right: 500, bottom: 220 },
+      textRect: { left, top, right: left + boxW, bottom: top + boxH },
       fontSize: 72,
     });
     PluginManager.closePluginView();

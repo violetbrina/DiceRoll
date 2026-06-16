@@ -2,8 +2,8 @@
   "name": "Dice Roll",
   "desc": "",
   "iconPath": "assets/icon.png",
-  "versionName": "0.0.8",
-  "versionCode": "8",
+  "versionName": "0.0.9",
+  "versionCode": "9",
   "pluginID": "475oxpaxcsnzr60t",
   "pluginKey": "dice_roll",
   "jsMainPath": "index"
