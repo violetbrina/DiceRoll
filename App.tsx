@@ -257,7 +257,13 @@ export default function App(): React.JSX.Element {
       {displayDice.length > 0 ? (
         <View style={styles.diceGrid}>
           {displayDice.map((die, i) => (
-            <DiceFace key={i} sides={die.sides} value={die.value} size={72} />
+            <DiceFace
+              key={i}
+              sides={die.sides}
+              value={die.value}
+              size={72}
+              struck={die.kept === false}
+            />
           ))}
         </View>
       ) : null}
@@ -265,9 +271,17 @@ export default function App(): React.JSX.Element {
       {/* Total */}
       {showResult && result ? (
         <>
-          <Text style={styles.totalLabel}>
-            Total: <Text style={styles.totalValue}>{result.total}</Text>
-          </Text>
+          {result.modifier !== 0 ? (
+            <Text style={styles.totalLabel}>
+              {result.total - result.modifier}{' '}
+              {result.modifier < 0 ? '-' : '+'} {Math.abs(result.modifier)} ={' '}
+              <Text style={styles.totalValue}>{result.total}</Text>
+            </Text>
+          ) : (
+            <Text style={styles.totalLabel}>
+              Total: <Text style={styles.totalValue}>{result.total}</Text>
+            </Text>
+          )}
 
           <View style={styles.actionRow}>
             <Pressable style={styles.actionBtn} onPress={handleCopyTotal}>
@@ -291,12 +305,15 @@ export default function App(): React.JSX.Element {
         </ScrollView>
       </View>
 
-      {/* Off-screen dice row captured to a single PNG for "Insert Dice". */}
+      {/* Off-screen dice row captured to a single PNG for "Insert Dice".
+          Only the KEPT dice are included — dropped dice are never inserted. */}
       {result ? (
         <View ref={diceShotRef} collapsable={false} style={styles.captureRow}>
-          {result.dice.map((die, i) => (
-            <DiceFace key={`shot-${i}`} sides={die.sides} value={die.value} size={120} />
-          ))}
+          {result.dice
+            .filter(die => die.kept)
+            .map((die, i) => (
+              <DiceFace key={`shot-${i}`} sides={die.sides} value={die.value} size={120} />
+            ))}
         </View>
       ) : null}
     </View>
@@ -313,7 +330,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: 720,
-    height: 900,
+    height: 600,
     maxWidth: '100%',
     maxHeight: '100%',
     borderWidth: 3,

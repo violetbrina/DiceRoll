@@ -8,6 +8,10 @@ export const MAX_SIDES = 100;
 export interface DieResult {
   sides: DieType;
   value: number;
+  // Whether this die counts toward the total. Dice dropped by keep-highest /
+  // keep-lowest / advantage / disadvantage are still rolled and shown (struck
+  // through), but kept=false so they don't count and aren't inserted.
+  kept: boolean;
 }
 
 export interface RollResult {
@@ -24,16 +28,33 @@ export type ParseResult =
   | { ok: true; result: RollResult }
   | { ok: false; error: ParseError };
 
-// A single signed term: either a dice group (NdX) or a flat numeric modifier.
-const TERM_RE = /[+-]?(?:\d+d\d+|\d+)/g;
-const DICE_TERM_RE = /^(\d+)d(\d+)$/;
+// A keep spec that may immediately follow a dice group: keep-highest/lowest X,
+// or advantage/disadvantage (sugar for rolling two and keeping the best/worst).
+// The keep count is optional and defaults to 1, so "2d20kl" == "2d20kl1".
+const KEEP = 'kh\\d*|kl\\d*|advantage|adv|disadvantage|dis';
+// A single signed term: a dice group ([N]dX[keep]) or a flat numeric modifier.
+const TERM_RE = new RegExp(`[+-]?(?:\\d*d\\d+(?:${KEEP})?|\\d+)`, 'g');
+const DICE_TERM_RE = new RegExp(`^(\\d*)d(\\d+)(${KEEP})?$`);
 
 export function rollDice(sides: DieType, count: number): DieResult[] {
   const results: DieResult[] = [];
   for (let i = 0; i < count; i++) {
-    results.push({ sides, value: Math.floor(Math.random() * sides) + 1 });
+    results.push({ sides, value: Math.floor(Math.random() * sides) + 1, kept: true });
   }
   return results;
+}
+
+// Mark the best/worst `keepCount` dice as kept and the rest as dropped, without
+// reordering them (so the display preserves roll order).
+function applyKeep(dice: DieResult[], keepCount: number, mode: 'high' | 'low'): void {
+  const order = dice.map((_, i) => i);
+  order.sort((a, b) =>
+    mode === 'high' ? dice[b].value - dice[a].value : dice[a].value - dice[b].value,
+  );
+  const keep = new Set(order.slice(0, keepCount));
+  dice.forEach((d, i) => {
+    d.kept = keep.has(i);
+  });
 }
 
 function err(message: string): ParseResult {
@@ -52,14 +73,44 @@ function validateGroup(count: number, sides: number): ParseResult | null {
   return null;
 }
 
-const INVALID = 'Invalid notation. Try: 4d6, 2d20+3, 1d8+1d6';
+const INVALID = 'Invalid notation. Try: 4d6, 2d20+3, 4d6kh3, d20adv';
+
+// Resolve a keep spec into (rollCount, keepCount, mode), validated against the
+// group's die count. Returns a ParseResult error string on invalid input.
+function resolveKeep(
+  count: number,
+  keep: string | undefined,
+): { rollCount: number; keepCount: number; mode: 'high' | 'low' | null } | ParseResult {
+  if (!keep) return { rollCount: count, keepCount: count, mode: null };
+
+  if (keep === 'adv' || keep === 'advantage' || keep === 'dis' || keep === 'disadvantage') {
+    if (count !== 1) {
+      return err(
+        'Advantage/disadvantage applies to a single die only (e.g. d20adv or 1d20dis).',
+      );
+    }
+    const mode = keep[0] === 'a' ? 'high' : 'low';
+    return { rollCount: 2, keepCount: 1, mode };
+  }
+
+  // kh / kl — the count after kh/kl is optional and defaults to 1.
+  const mode = keep[1] === 'h' ? 'high' : 'low';
+  const digits = keep.slice(2);
+  const keepCount = digits === '' ? 1 : parseInt(digits, 10);
+  if (keepCount < 1 || keepCount >= count) {
+    return err(
+      `Keep count for ${keep} must be between 1 and ${count - 1} for ${count} dice.`,
+    );
+  }
+  return { rollCount: count, keepCount, mode };
+}
 
 export function parseDiceNotation(input: string): ParseResult {
   const s = input.replace(/\s/g, '').toLowerCase();
   if (!s) return err(INVALID);
 
   // Tokenise into signed terms and require they cover the whole string —
-  // any leftover characters (e.g. "d6", "1d6x") mean the notation is invalid.
+  // any leftover characters (e.g. "1d6x", "kh3") mean the notation is invalid.
   const terms = s.match(TERM_RE);
   if (!terms || terms.join('') !== s) return err(INVALID);
 
@@ -73,11 +124,15 @@ export function parseDiceNotation(input: string): ParseResult {
     if (group) {
       // A dice group always adds to the pool; a leading '-' on it is invalid.
       if (sign === -1) return err(INVALID);
-      const count = parseInt(group[1], 10);
+      const count = group[1] === '' ? 1 : parseInt(group[1], 10); // implicit 1
       const sides = parseInt(group[2], 10);
       const e = validateGroup(count, sides);
       if (e) return e;
-      dice.push(...rollDice(sides as DieType, count));
+      const resolved = resolveKeep(count, group[3]);
+      if ('ok' in resolved) return resolved; // ParseResult error
+      const rolled = rollDice(sides as DieType, resolved.rollCount);
+      if (resolved.mode) applyKeep(rolled, resolved.keepCount, resolved.mode);
+      dice.push(...rolled);
     } else {
       modifier += sign * parseInt(body, 10);
     }
@@ -86,6 +141,7 @@ export function parseDiceNotation(input: string): ParseResult {
   // At least one dice group is required — a bare number (e.g. "6") is not a roll.
   if (dice.length === 0) return err(INVALID);
 
-  const total = dice.reduce((sum, d) => sum + d.value, 0) + modifier;
+  const total =
+    dice.reduce((sum, d) => sum + (d.kept ? d.value : 0), 0) + modifier;
   return { ok: true, result: { dice, modifier, total } };
 }
