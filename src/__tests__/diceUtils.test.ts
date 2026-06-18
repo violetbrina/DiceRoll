@@ -112,6 +112,59 @@ describe('parseDiceNotation — arbitrary number of dice groups', () => {
   });
 });
 
+describe('parseDiceNotation — colour keywords', () => {
+  it('1d12 hope, 1d12 fear -> first white, second black', () => {
+    const r = parseDiceNotation('1d12 hope, 1d12 fear');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.result.dice).toHaveLength(2);
+    expect(r.result.dice[0].color).toBe('white');
+    expect(r.result.dice[1].color).toBe('black');
+  });
+  it('maps all keyword synonyms (white/light/hope/good, black/dark/fear/bad)', () => {
+    for (const w of ['white', 'light', 'hope', 'good']) {
+      const r = parseDiceNotation(`1d6 ${w}`);
+      expect(r.ok && r.result.dice[0].color).toBe('white');
+    }
+    for (const b of ['black', 'dark', 'fear', 'bad']) {
+      const r = parseDiceNotation(`1d6 ${b}`);
+      expect(r.ok && r.result.dice[0].color).toBe('black');
+    }
+  });
+  it('no keyword leaves colour undefined (follows the toggle)', () => {
+    const r = parseDiceNotation('1d20');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.result.dice[0].color).toBeUndefined();
+  });
+  it('a whole group shares the colour, applied to every die', () => {
+    const r = parseDiceNotation('3d6 dark');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.result.dice.every(d => d.color === 'black')).toBe(true);
+  });
+  it('combines with keep and modifiers: 4d6kh3 fear + 2', () => {
+    const r = parseDiceNotation('4d6kh3 fear + 2');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.result.dice).toHaveLength(4);
+    expect(r.result.dice.every(d => d.color === 'black')).toBe(true);
+    expect(r.result.modifier).toBe(2);
+  });
+  it("'+' and ',' both join groups", () => {
+    const plus = parseDiceNotation('1d6 hope+1d8 fear');
+    const comma = parseDiceNotation('1d6 hope,1d8 fear');
+    expect(plus.ok).toBe(true);
+    expect(comma.ok).toBe(true);
+    if (!plus.ok || !comma.ok) return;
+    expect(plus.result.dice.map(d => d.color)).toEqual(['white', 'black']);
+    expect(comma.result.dice.map(d => d.color)).toEqual(['white', 'black']);
+  });
+  it('a bare colour keyword is invalid', () => {
+    expect(parseDiceNotation('hope').ok).toBe(false);
+  });
+});
+
 describe('parseDiceNotation — case insensitivity', () => {
   it('4D6 is parsed identically to 4d6', () => {
     const r = parseDiceNotation('4D6');

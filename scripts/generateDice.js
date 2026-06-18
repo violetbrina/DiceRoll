@@ -64,13 +64,13 @@ const CIRCLE = { source: 'dX', values: 100, cx: 0.5, cy: 0.5, boxW: 0.5, boxH: 0
 // Approximate width of one bold-sans glyph relative to font size.
 const GLYPH_RATIO = 0.6;
 
-function numberSvg(value, x, y, fontSize) {
+function numberSvg(value, x, y, fontSize, fill = '#000') {
   return Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${OUT}" height="${OUT}">` +
       `<text x="${Math.round(x)}" y="${Math.round(y)}" ` +
       `font-family="Helvetica, Arial, sans-serif" font-size="${Math.round(fontSize)}" ` +
       `font-weight="bold" text-anchor="middle" dominant-baseline="central" ` +
-      `fill="#000">${value}</text>` +
+      `fill="${fill}">${value}</text>` +
       `</svg>`,
   );
 }
@@ -365,18 +365,87 @@ async function generate() {
           .toBuffer();
       }
 
-      sourceCache[source] = { box, scale, baseBuf };
+      // Black variant of the base: invert the RGB (white faces -> black, black
+      // edges -> white) then scale to ~#cccccc so edges read as light grey. The
+      // alpha (transparent background) is preserved. Same transform works for
+      // the photo dice and the vector d4. Derived from the white-faced base
+      // before it is tinted below.
+      const baseBufBlack = await sharp(baseBuf)
+        .negate({ alpha: false })
+        .linear([0.8, 0.8, 0.8, 1], [0, 0, 0, 0])
+        .png()
+        .toBuffer();
+
+      // Tint the white variant's faces to Supernote's WHITE ink level, #fefefe
+      // (0xfe) — the same value as the device's white marker, which draws white
+      // over content. Only pure #ffffff (0xff) is transparent/paper; 0xfe is real
+      // white ink, so faces stay opaque white after the inserted image flattens
+      // (it failed before only because the lossy palette + partial alpha mangled
+      // the near-white into paper). writeComposite snaps to exactly 0xfe.
+      const FACE = 0xfe / 255;
+      baseBuf = await sharp(baseBuf)
+        .linear([FACE, FACE, FACE, 1], [0, 0, 0, 0])
+        .png()
+        .toBuffer();
+
+      sourceCache[source] = { box, scale, baseBuf, baseBufBlack };
     }
     return sourceCache[source];
   }
 
   let count = 0;
 
-  // Composite every value of a config onto its normalised base.
+  // No palette quantisation: it re-shifts our snapped levels (e.g. 201 -> 188).
+  // The art is flat with ~5 colours, so plain PNG still compresses tiny.
+  const PNG_OPTS = { compressionLevel: 9, effort: 10 };
+
+  // Supernote stores only 4 grey ink levels; values that aren't EXACTLY one of
+  // them render as a dithered/partial intermediate (the template shows through).
+  // Snap every opaque grey to the nearest level and force alpha fully binary, so
+  // faces are always exactly 0xc9 grey and nothing is partially transparent.
+  const LEVELS = [0x00, 0x9d, 0xc9, 0xfe];
+  const snap = v => {
+    let best = LEVELS[0];
+    let bd = Infinity;
+    for (const L of LEVELS) {
+      const d = Math.abs(v - L);
+      if (d < bd) {
+        bd = d;
+        best = L;
+      }
+    }
+    return best;
+  };
+  async function writeComposite(compositeBuf, outPath) {
+    const { data, info } = await sharp(compositeBuf)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const ch = info.channels;
+    for (let i = 0; i < data.length; i += ch) {
+      if (data[i + 3] < 128) {
+        data[i + 3] = 0; // fully transparent
+      } else {
+        data[i + 3] = 255; // fully opaque
+        const v = snap(data[i]); // r=g=b for our greyscale art
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+      }
+    }
+    await sharp(data, { raw: { width: info.width, height: info.height, channels: ch } })
+      .png(PNG_OPTS)
+      .toFile(outPath);
+  }
+
+  // Composite every value of a config onto its normalised base, producing both
+  // the normal (white face / black lines) and black (black face / grey lines /
+  // white number) variants. Returns require() lines for each variant.
   async function renderConfig(type, cfg) {
-    const { box, scale, baseBuf } = await loadSource(cfg.source);
+    const { box, scale, baseBuf, baseBufBlack } = await loadSource(cfg.source);
     const S = box.S;
-    const valueLines = [];
+    const normal = [];
+    const black = [];
     for (let value = 1; value <= cfg.values; value++) {
       // Apply the same scale+centre transform used for the art to the number
       // anchor and face box, so placement matches the original tuning exactly.
@@ -388,30 +457,38 @@ async function generate() {
       const fontSize = Math.min(bw / (GLYPH_RATIO * nchars), bh);
 
       const outName = `${type}-${value}.png`;
-      await sharp(baseBuf)
-        .composite([{ input: numberSvg(value, ncx, ncy, fontSize), top: 0, left: 0 }])
-        // Transparent background, white faces, black lines/text. Palette with
-        // dither:0 keeps files small without speckling the alpha edges.
-        .png({ palette: true, colours: 64, dither: 0, effort: 10, compressionLevel: 9 })
-        .toFile(path.join(OUT_DIR, outName));
-      valueLines.push(
-        `    ${value}: require('../assets/dice/generated/${outName}'),`,
-      );
-      count++;
+      const normalBuf = await sharp(baseBuf)
+        .composite([{ input: numberSvg(value, ncx, ncy, fontSize, '#000'), top: 0, left: 0 }])
+        .png()
+        .toBuffer();
+      await writeComposite(normalBuf, path.join(OUT_DIR, outName));
+      normal.push(`    ${value}: require('../assets/dice/generated/${outName}'),`);
+
+      const blackName = `${type}-${value}-b.png`;
+      const blackBuf = await sharp(baseBufBlack)
+        .composite([{ input: numberSvg(value, ncx, ncy, fontSize, '#fff'), top: 0, left: 0 }])
+        .png()
+        .toBuffer();
+      await writeComposite(blackBuf, path.join(OUT_DIR, blackName));
+      black.push(`    ${value}: require('../assets/dice/generated/${blackName}'),`);
+
+      count += 2;
     }
-    return valueLines;
+    return { normal, black };
   }
 
-  // Dedicated dice (d2..d100), keyed by side count.
+  // Dedicated dice (d2..d100), keyed by side count — normal and black variants.
   const mapEntries = [];
+  const mapEntriesBlack = [];
   for (const [type, cfg] of Object.entries(DICE)) {
     const sides = Number(type.slice(1));
-    const valueLines = await renderConfig(type, cfg);
-    mapEntries.push(`  ${sides}: {\n${valueLines.join('\n')}\n  },`);
+    const { normal, black } = await renderConfig(type, cfg);
+    mapEntries.push(`  ${sides}: {\n${normal.join('\n')}\n  },`);
+    mapEntriesBlack.push(`  ${sides}: {\n${black.join('\n')}\n  },`);
   }
 
   // Circle placeholders (dX), keyed by rolled value, for any other die type.
-  const circleLines = await renderConfig('dX', CIRCLE);
+  const circle = await renderConfig('dX', CIRCLE);
 
   const header =
     '// AUTO-GENERATED by scripts/generateDice.js — do not edit by hand.\n' +
@@ -425,15 +502,26 @@ async function generate() {
     'export const DICE_IMAGES: DiceImageMap = {\n' +
     mapEntries.join('\n') +
     '\n};\n\n' +
+    '// Black variant: black faces, light-grey edges, white number.\n' +
+    'export const DICE_IMAGES_BLACK: DiceImageMap = {\n' +
+    mapEntriesBlack.join('\n') +
+    '\n};\n\n' +
     '// Circle placeholder by rolled value, used for any die type without art.\n' +
     'export const CIRCLE_IMAGES: CircleImageMap = {\n' +
-    circleLines.join('\n') +
+    circle.normal.join('\n') +
     '\n};\n\n' +
-    'export function diceImage(sides: number, value: number): ImageSourcePropType | undefined {\n' +
-    '  const dedicated = DICE_IMAGES[sides];\n' +
+    'export const CIRCLE_IMAGES_BLACK: CircleImageMap = {\n' +
+    circle.black.join('\n') +
+    '\n};\n\n' +
+    'export function diceImage(\n' +
+    '  sides: number,\n' +
+    '  value: number,\n' +
+    '  black = false,\n' +
+    '): ImageSourcePropType | undefined {\n' +
+    '  const dedicated = (black ? DICE_IMAGES_BLACK : DICE_IMAGES)[sides];\n' +
     '  if (dedicated && dedicated[value]) return dedicated[value];\n' +
     '  // Fall back to the circle placeholder for arbitrary die types (e.g. d7).\n' +
-    '  return CIRCLE_IMAGES[value];\n' +
+    '  return (black ? CIRCLE_IMAGES_BLACK : CIRCLE_IMAGES)[value];\n' +
     '}\n';
 
   fs.writeFileSync(MAP_FILE, header + body);

@@ -54,6 +54,7 @@ export default function App(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RollResult | null>(null);
   const [animationEnabled, setAnimationEnabled] = useState(false);
+  const [blackDice, setBlackDice] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animatedDice, setAnimatedDice] = useState<DieResult[]>([]);
   const pendingResult = useRef<RollResult | null>(null);
@@ -147,6 +148,10 @@ export default function App(): React.JSX.Element {
     setAnimationEnabled(prev => !prev);
   }, []);
 
+  const toggleBlackDice = useCallback(() => {
+    setBlackDice(prev => !prev);
+  }, []);
+
   const handleCopyTotal = useCallback(() => {
     if (!result) return;
     Clipboard.setString(String(result.total));
@@ -204,7 +209,11 @@ export default function App(): React.JSX.Element {
   // explicit size makes view-shot capture a correct, square-per-die aspect
   // (otherwise its height is mis-measured and the inserted image stretches).
   const keptDice = result ? result.dice.filter(d => d.kept) : [];
-  const CAP_DIE = 120;
+  // Capture each die at the composite's native size (300px) so the outline
+  // stays full-width and solid. Downscaling it (e.g. to 120) anti-aliases the
+  // ~5px outline into semi-transparency, which Supernote then drops — leaving a
+  // thin transparent gap between the face and the edge.
+  const CAP_DIE = 300;
   const CAP_FOOTPRINT = CAP_DIE + CAP_DICE_MARGIN * 2; // die + its wrapper margin
   const capWidth = keptDice.length * CAP_FOOTPRINT + CAP_ROW_PAD * 2;
   const capHeight = CAP_FOOTPRINT + CAP_ROW_PAD * 2;
@@ -264,15 +273,26 @@ export default function App(): React.JSX.Element {
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {/* Animation toggle */}
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Animation</Text>
-        <Pressable
-          style={[styles.toggle, animationEnabled && styles.toggleOn]}
-          onPress={toggleAnimation}
-        >
-          <Text style={[styles.toggleText, animationEnabled && styles.toggleTextOn]}>{animationEnabled ? 'ON' : 'OFF'}</Text>
-        </Pressable>
+      {/* Toggles, inline to save vertical space */}
+      <View style={styles.toggleRowInline}>
+        <View style={styles.toggleGroup}>
+          <Text style={styles.toggleLabel}>Animation</Text>
+          <Pressable
+            style={[styles.toggle, animationEnabled && styles.toggleOn]}
+            onPress={toggleAnimation}
+          >
+            <Text style={[styles.toggleText, animationEnabled && styles.toggleTextOn]}>{animationEnabled ? 'ON' : 'OFF'}</Text>
+          </Pressable>
+        </View>
+        <View style={styles.toggleGroup}>
+          <Text style={styles.toggleLabel}>Black dice</Text>
+          <Pressable
+            style={[styles.toggle, blackDice && styles.toggleOn]}
+            onPress={toggleBlackDice}
+          >
+            <Text style={[styles.toggleText, blackDice && styles.toggleTextOn]}>{blackDice ? 'ON' : 'OFF'}</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Divider */}
@@ -290,6 +310,7 @@ export default function App(): React.JSX.Element {
               value={die.value}
               size={72}
               struck={die.kept === false}
+              black={die.color ? die.color === 'black' : blackDice}
             />
           ))}
         </View>
@@ -342,7 +363,7 @@ export default function App(): React.JSX.Element {
           style={[styles.captureRow, { width: capWidth, height: capHeight }]}
         >
           {keptDice.map((die, i) => (
-            <DiceFace key={`shot-${i}`} sides={die.sides} value={die.value} size={CAP_DIE} />
+            <DiceFace key={`shot-${i}`} sides={die.sides} value={die.value} size={CAP_DIE} black={die.color ? die.color === 'black' : blackDice} />
           ))}
         </View>
       ) : null}
@@ -360,7 +381,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: 720,
-    height: 600,
+    height: 720,
     maxWidth: '100%',
     maxHeight: '100%',
     borderWidth: 3,
@@ -414,14 +435,15 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 4,
   },
-  toggleRow: {
+  toggleRowInline: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 8,
     marginBottom: 8,
   },
-  toggleLabel: { fontSize: 16, color: '#000', fontWeight: '600' },
+  toggleGroup: { flexDirection: 'row', alignItems: 'center' },
+  toggleLabel: { fontSize: 16, color: '#000', fontWeight: '600', marginRight: 10 },
   toggle: {
     borderWidth: 2,
     borderColor: '#000',

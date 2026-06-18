@@ -5,6 +5,8 @@ export type DieType = number;
 export const MIN_SIDES = 2;
 export const MAX_SIDES = 100;
 
+export type DieColor = 'white' | 'black';
+
 export interface DieResult {
   sides: DieType;
   value: number;
@@ -12,6 +14,10 @@ export interface DieResult {
   // keep-lowest / advantage / disadvantage are still rolled and shown (struck
   // through), but kept=false so they don't count and aren't inserted.
   kept: boolean;
+  // Explicit colour from a keyword on the group (white/light/hope/good ->
+  // white; black/dark/fear/bad -> black). Undefined means "follow the global
+  // Black-dice toggle".
+  color?: DieColor;
 }
 
 export interface RollResult {
@@ -32,9 +38,22 @@ export type ParseResult =
 // or advantage/disadvantage (sugar for rolling two and keeping the best/worst).
 // The keep count is optional and defaults to 1, so "2d20kl" == "2d20kl1".
 const KEEP = 'kh\\d*|kl\\d*|advantage|adv|disadvantage|dis';
-// A single signed term: a dice group ([N]dX[keep]) or a flat numeric modifier.
-const TERM_RE = new RegExp(`[+-]?(?:\\d*d\\d+(?:${KEEP})?|\\d+)`, 'g');
-const DICE_TERM_RE = new RegExp(`^(\\d*)d(\\d+)(${KEEP})?$`);
+// An optional colour keyword after a dice group; the former of each pair is
+// white, the latter black.
+const COLOR = 'white|light|hope|good|black|dark|fear|bad';
+const WHITE_WORDS = new Set(['white', 'light', 'hope', 'good']);
+// A signed/comma-separated term: a dice group ([N]dX[keep][colour]) or a flat
+// numeric modifier. ',' and '+' both join groups; '-' is a negative modifier.
+const TERM_RE = new RegExp(
+  `[+,-]?(?:\\d*d\\d+(?:${KEEP})?(?:${COLOR})?|\\d+)`,
+  'g',
+);
+const DICE_TERM_RE = new RegExp(`^(\\d*)d(\\d+)(${KEEP})?(${COLOR})?$`);
+
+function colorFromKeyword(kw: string | undefined): DieColor | undefined {
+  if (!kw) return undefined;
+  return WHITE_WORDS.has(kw) ? 'white' : 'black';
+}
 
 export function rollDice(sides: DieType, count: number): DieResult[] {
   const results: DieResult[] = [];
@@ -118,8 +137,8 @@ export function parseDiceNotation(input: string): ParseResult {
   let modifier = 0;
 
   for (const term of terms) {
-    const sign = term.startsWith('-') ? -1 : 1;
-    const body = term.replace(/^[+-]/, '');
+    const sign = term.startsWith('-') ? -1 : 1; // ',' and '+' are both positive
+    const body = term.replace(/^[+,-]/, '');
     const group = body.match(DICE_TERM_RE);
     if (group) {
       // A dice group always adds to the pool; a leading '-' on it is invalid.
@@ -130,8 +149,10 @@ export function parseDiceNotation(input: string): ParseResult {
       if (e) return e;
       const resolved = resolveKeep(count, group[3]);
       if ('ok' in resolved) return resolved; // ParseResult error
+      const color = colorFromKeyword(group[4]);
       const rolled = rollDice(sides as DieType, resolved.rollCount);
       if (resolved.mode) applyKeep(rolled, resolved.keepCount, resolved.mode);
+      if (color) rolled.forEach(d => (d.color = color));
       dice.push(...rolled);
     } else {
       modifier += sign * parseInt(body, 10);
