@@ -1,97 +1,78 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Dice Roll
 
-# Getting Started
+A dice-roller plugin for Supernote e-ink devices (Manta / Nomad). Type dice
+notation, roll, and insert the result — as a number or as movable dice images —
+straight into your note.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+![Dice Roll after a roll](assets/screenshots/DiceRoll%20-%20First%20Roll.png)
 
-## Step 1: Start Metro
+## Installation
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+Download the latest `dice_roll.<version>.snplg` from
+[`build/outputs/`](build/outputs/) and side-load it onto your device following
+the r/Supernote_dev guide:
+**[Welcome — here's your README](https://www.reddit.com/r/Supernote_dev/comments/1shdzjg/welcome_heres_your_readme/)**.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## What it does
+
+- **Roll any dice notation** and see each die rendered as a 3D polyhedron, with
+  the total below.
+- **Insert into your note**:
+  - *Insert Total* — drops the final number in the centre of the page.
+  - *Insert Dice* — drops a single movable image of the rolled dice.
+  - *Copy Total* — copies the number to the clipboard.
+- **Net modifier** is shown as `dice ± modifier = total` and is never part of
+  the inserted dice.
+- **Keep / advantage**: keep-highest/lowest and advantage/disadvantage. Dropped
+  dice are shown struck through and don't count or get inserted.
+- **Black or white dice**: a global toggle, or per-die colour keywords.
+- **Lasso to fill the input**: lasso a text box or handwriting and it becomes
+  the notation (handwriting is OCR'd).
+- **Animation** toggle for a quick roll animation.
+
+## Screenshots
+
+| Black dice | Inserted into a note |
+| --- | --- |
+| ![Black dice](assets/screenshots/DiceRoll%20-%20Black%20Dice.png) | ![Insert dice](assets/screenshots/Dice%20Roll%20-%20Insert%20Dice.png) |
+
+## Notation & examples
+
+| You type | What happens |
+| --- | --- |
+| `4d6` | Roll four six-sided dice |
+| `d20` | One d20 (count defaults to 1) |
+| `1d8+1d6` or `1d8, 1d6` | Combine groups (`+` and `,` both work) |
+| `2d20+3-1` | Modifiers add up: shows `dice + 2 = total` |
+| `4d6kh3` | Roll 4d6, **keep highest 3** (lowest struck out) |
+| `2d20kl1` or `2d20kl` | **Keep lowest** (count after `kh`/`kl` defaults to 1) |
+| `d20adv` / `d20dis` | **Advantage / disadvantage** (roll 2, keep best / worst) |
+| `1d7`, `3d13` | Any die from **d2–d100** (no dedicated art → shown in a circle) |
+| `1d12 hope, 1d12 fear` | Per-die colour: first **white**, second **black** |
+| `4d6kh3 fear + 2` | Everything together: keep + colour + modifier |
+
+**Colour keywords** (after a dice group): `white` / `light` / `hope` / `good`
+make a die white; `black` / `dark` / `fear` / `bad` make it black. A keyword
+overrides the global Black-dice toggle for that group; dice without a keyword
+follow the toggle.
+
+Out-of-range input is reported when you tap **Roll** (e.g. `d101`, or keeping
+more dice than you rolled).
+
+## Building from source
+
+The plugin bundles a native module (`react-native-view-shot`), so the build
+produces a native APK and **requires JDK 17**:
 
 ```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+npm install
+npm run gen:dice   # regenerate dice images (only after changing art/layout)
+JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ./buildPlugin.sh
 ```
 
-## Step 2: Build and run your app
+The packaged plugin is written to `build/outputs/dice_roll.<version>.snplg`.
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+## License
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0). See
+[LICENSE](LICENSE).
