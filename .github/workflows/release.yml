@@ -1,0 +1,39 @@
+name: Release
+
+# Publishes a GitHub Release whenever a version tag (vX.Y.Z) is pushed.
+# The plugin is built LOCALLY (native Android build, JDK 17) and the resulting
+# build/outputs/dice_roll.<version>.snplg is committed before tagging — this
+# job just attaches that committed artifact to the Release.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate the plugin package for this tag
+        id: pkg
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          file="build/outputs/dice_roll.${version}.snplg"
+          if [ ! -f "$file" ]; then
+            echo "::error::$file not found. Build it locally and commit it before tagging (see README → Releasing)."
+            exit 1
+          fi
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      - name: Create the Release and attach the .snplg
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          files: ${{ steps.pkg.outputs.file }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true

@@ -72,6 +72,27 @@ JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ./bui
 
 The packaged plugin is written to `build/outputs/dice_roll.<version>.snplg`.
 
+### Releasing a new version
+
+The build runs locally (the native build is too finicky for CI), so the built
+`.snplg` is committed and a tag-triggered GitHub Action
+([`.github/workflows/release.yml`](.github/workflows/release.yml)) attaches it
+to a Release:
+
+1. Bump the version in `package.json` and `PluginConfig.json`.
+2. Build (above) — produces `build/outputs/dice_roll.<version>.snplg`.
+3. Commit, tag, and push:
+   ```sh
+   git add -A
+   git commit -m "Release vX.Y.Z"
+   git tag vX.Y.Z
+   git push origin main --tags
+   ```
+
+Pushing the tag triggers the workflow, which creates the `vX.Y.Z` Release and
+uploads the matching `.snplg`. (The job fails fast if the artifact for that
+version wasn't committed.)
+
 ## License
 
 Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0). See

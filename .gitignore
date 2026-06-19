@@ -73,3 +73,11 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Keep released plugin packages so a pushed tag can publish them as a Release.
+# (Only the root build/outputs/*.snplg — native build dirs stay ignored.)
+!/build/
+/build/*
+!/build/outputs/
+/build/outputs/*
+!/build/outputs/*.snplg
