@@ -23,7 +23,8 @@ jobs:
         id: pkg
         run: |
           version="${GITHUB_REF_NAME#v}"
-          file="build/outputs/dice_roll.${version}.snplg"
+          name="$(node -p "require('./package.json').name")"
+          file="build/outputs/${name}.${version}.snplg"
           if [ ! -f "$file" ]; then
             echo "::error::$file not found. Build it locally and commit it before tagging (see README → Releasing)."
             exit 1

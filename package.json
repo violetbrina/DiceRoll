@@ -1,6 +1,6 @@
 {
-  "name": "dice_roll",
-  "version": "0.0.10",
+  "name": "DiceRoll",
+  "version": "0.0.11",
   "private": true,
   "scripts": {
     "gen:dice": "node scripts/generateDice.js",
