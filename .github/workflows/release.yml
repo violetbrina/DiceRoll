@@ -18,6 +18,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags, so we can diff against the previous tag
+
+      - name: Build release notes from commits since the previous tag
+        id: notes
+        run: |
+          prev="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+          if [ -n "$prev" ]; then range="$prev..${GITHUB_REF_NAME}"; else range="${GITHUB_REF_NAME}"; fi
+          {
+            echo "body<<NOTES_EOF"
+            git log --no-merges --pretty=format:'- %s' "$range"
+            printf '\n'
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Locate the plugin package for this tag
         id: pkg
@@ -35,6 +49,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
+          body: ${{ steps.notes.outputs.body }}
           files: ${{ steps.pkg.outputs.file }}
           fail_on_unmatched_files: true
-          generate_release_notes: true
+          generate_release_notes: true # appends GitHub's "Full Changelog" link
