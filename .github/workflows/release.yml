@@ -2,7 +2,7 @@ name: Release
 
 # Publishes a GitHub Release whenever a version tag (vX.Y.Z) is pushed.
 # The plugin is built LOCALLY (native Android build, JDK 17) and the resulting
-# build/outputs/dice_roll.<version>.snplg is committed before tagging — this
+# build/outputs/DiceRoll.<version>.snplg is committed before tagging — this
 # job just attaches that committed artifact to the Release.
 
 on:

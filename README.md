@@ -8,7 +8,7 @@ straight into your note.
 
 ## Installation
 
-Download the latest `dice_roll.<version>.snplg` from
+Download the latest `DiceRoll.<version>.snplg` from
 [`build/outputs/`](build/outputs/) and side-load it onto your device following
 the r/Supernote_dev guide:
 **[Welcome — here's your README](https://www.reddit.com/r/Supernote_dev/comments/1shdzjg/welcome_heres_your_readme/)**.
@@ -70,7 +70,7 @@ npm run gen:dice   # regenerate dice images (only after changing art/layout)
 JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ./buildPlugin.sh
 ```
 
-The packaged plugin is written to `build/outputs/dice_roll.<version>.snplg`.
+The packaged plugin is written to `build/outputs/DiceRoll.<version>.snplg`.
 
 ### Releasing a new version
 
@@ -80,7 +80,7 @@ The build runs locally (the native build is too finicky for CI), so the built
 to a Release:
 
 1. Bump the version in `package.json` and `PluginConfig.json`.
-2. Build (above) — produces `build/outputs/dice_roll.<version>.snplg`.
+2. Build (above) — produces `build/outputs/DiceRoll.<version>.snplg`.
 3. Commit, tag, and push:
    ```sh
    git add -A
